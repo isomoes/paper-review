@@ -1,0 +1,43 @@
+.DS_Store
+.Dstore
+
+# LaTeX build artifacts
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.glg
+*.glo
+*.gls
+*.idx
+*.ilg
+*.ind
+*.ist
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex.gz
+*.toc
+*.xdv
+
+# Latexmk and temp files
+*.dvi
+*.pdfsync
+*.tmp
+*.bak
+
+# Typst build artifacts
+*.typ.pdf
+*.typ.svg
+*.typ.png
+
+# Common output directories
+build/
+dist/
+out/
