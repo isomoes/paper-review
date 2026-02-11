@@ -1,0 +1,3 @@
+[submodule "typesetting"]
+	path = typesetting
+	url = https://github.com/isomoes/typesetting.git
