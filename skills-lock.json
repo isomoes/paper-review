@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "docx": {
+      "source": "appautomaton/document-skills",
+      "sourceType": "github",
+      "computedHash": "0298eb11b8a27faeef247f9d127885a4998ce410a1872e2e259366c513fbf0d0"
+    }
+  }
+}
