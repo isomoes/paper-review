@@ -48,7 +48,7 @@ Do not silently overwrite an existing `review.typ`. For re-review, first preserv
 
 Follow `typesetting/CLAUDE.md` and use `typesetting/academic/review.typ` as the visual template. Remove all placeholders and include:
 
-1. **Paper Information** — title, manuscript ID, venue, review round, recommendation, and date.
+1. **Paper Information** — title, manuscript ID, venue, review round, recommendation, date, reviewer/author name, and the AI model name used for the review.
 2. **Review Summary** — summarize the contribution, verified improvements or strengths, central concerns, and recommendation; then list the main required revisions point by point.
 3. **Detailed Review**, organized as:
    - **Innovation Assessment**
@@ -57,6 +57,8 @@ Follow `typesetting/CLAUDE.md` and use `typesetting/academic/review.typ` as the 
    - **Writing Quality Assessment**
 
 Retain the template's score boxes and visual conventions when they are useful, but ensure that narrative evidence—not numerical scores—controls the recommendation. Do not include internal personas, orchestration notes, chain-of-thought, confidential panel mechanics, or a dump of panel reports.
+
+Credit the review transparently in both the Typst document metadata and the visible title or Paper Information block: keep the human reviewer/author name and list the exact AI model name separately. Do not present the AI model as the accountable human reviewer.
 
 ## Re-review
 
