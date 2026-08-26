@@ -1,0 +1,401 @@
+Sr.No   Comments                                      Response
+        Reviewer1
+1]      Comparison with State-of-the-Art              We compared the GPU-based Salsa20
+        Methods                                       acceleration with GPU-based
+        The experimental evaluation is currently      implementations of AES-256-CTR and
+        insu icient. The proposed method should       ASCON-128a. All three are lightweight
+        be compared with recent and closely           cryptographic algorithms. The comparison
+        related image encryption approaches,          was performed in terms of both security and
+        particularly GPU-based, lightweight           computational performance, using the same
+        cryptographic, post-quantum resistant,        image dataset and the same GPU. All of these
+        and stream cipher-based methods               results are presented in the Results and
+        published within the last ﬁve years. The      Discussion sections.
+        comparison should include both security
+        and computational performance using
+        identical datasets and experimental
+        conditions.
+2]      Evaluation Using Standard Security            Security metrics such as NPCR, UACI,
+        Metrics                                       information entropy, chi-square histogram
+        The security analysis should be               uniformity, adjacent-pixel correlation, key
+        signiﬁcantly expanded by incorporating        space analysis, key sensitivity, and
+        widely accepted image encryption              robustness against Gaussian noise, salt-and-
+        evaluation metrics, including but not         pepper noise, contiguous block cut-out noise,
+        limited to:                                   and scattered random pixel loss are
+                                                      discussed in the last part of the Results
+        NPCR (Number of Pixel Change Rate)            section. (See note below)
+        UACI (Uniﬁed Average Changing Intensity)
+        Information Entropy
+        Histogram Uniformity
+        Correlation Coe icient of Adjacent Pixels
+        Key Space Analysis
+        Key Sensitivity
+        Di erential Attack Resistance
+        NIST Statistical Test Suite (if applicable)
+        Robustness against noise, cropping,
+        compression, and data loss.
+3]      Performance Evaluation                        The computational performance parameters,
+        The computational performance should be       such as encryption and decryption time, GPU
+        evaluated more comprehensively by             acceleration speedup over the CPU
+        reporting:                                    implementation, throughput (MB/s), GPU
+                                                      memory consumption, and scalability for a
+        Encryption and decryption time                di erent image resolution (a 512 KB Lenna
+        GPU acceleration speedup over CPU             colour image), have been evaluated, and all of
+        implementation                                these results are included in the revised
+        Throughput (MB/s or FPS)                      manuscript (see Tables 6, 7, 8, 9, 10, and 11).
+        GPU memory consumption
+        Computational complexity
+        Scalability for di erent image resolutions.
+4]    Improvement of Figures                        We increased ﬁgure resolution to 400dpi.
+     Several ﬁgures require substantial             Once again, we checked ﬁgure referenced
+     improvement. The ﬁgure resolution should       properly or not.
+     be increased, labels and axis titles should
+     be enlarged for readability, captions should
+     be more descriptive, and all ﬁgures should
+     be referenced appropriately within the
+     manuscript. In addition, workﬂow diagrams
+     and performance comparison charts
+     should be redesigned using a consistent
+     style and colour scheme.
+5]   Experimental Validation                        The proposed algorithm works with images of
+     The proposed algorithm should be               di erent sizes, including RGB images. For
+     validated on multiple benchmark image          demonstration purposes, one additional
+     datasets with di erent image sizes and         colour image - the 512 KB "Lenna" image - is
+     content types. Statistical results should be   presented in the Results section of the
+     averaged over multiple independent             manuscript. This demonstrates the
+     experiments to demonstrate the                 robustness of the proposed GPU-based
+     robustness and reliability of the proposed     Salsa20 algorithm.
+     framework.
+6]   Discussion                                     A dedicated Discussion section has been
+     The manuscript would beneﬁt from a more        added to the revised manuscript, which
+     detailed discussion explaining why the         covers all three points: why the proposed
+     proposed approach outperforms existing         approach outperforms existing methods (the
+     methods, identifying its limitations, and      favourable rounds-per-byte structure of
+     describing potential real-world deployment     Salsa20 and the tuned kernel conﬁguration),
+     scenarios for secure social media              its limitations (ﬁxed grid conﬁguration,
+     platforms.                                     conﬁdentiality-only operation, and
+                                                    incompatibility of ciphertext with lossy
+                                                    recompression), and real-world deployment
+                                                    scenarios for secure social media platforms.
+     Reviewer 2
+1]   The title and abstract repeatedly claim that   We agree the claim required precise
+     the proposed method is ‘’quantum-              justiﬁcation. The revised Introduction
+     resistant’’. However, the draft only           (second-last paragraph) now explains the
+     describes an implementation of the             basis of the claim: the only applicable
+     Salsa20 (256-bit) stream cipher on a GPU.      quantum attack is Grover's key search, which
+     Salsa20 is not a standardized post-            reduces the e ective security of the 256-bit
+     quantum cryptographic algorithm. The           key to approximately 128 bits - meeting the
+     manuscript should justify why Salsa20 is       post-quantum security ﬂoor in NIST guidance.
+     considered quantum resistant, explain the      This bound is provably optimal (Bennett et al.,
+     threat model, and support the claim with       1997). Supporting references to Grover
+     appropriate references.                        (1996), Bennett et al. (1997), and the NIST
+                                                    post-quantum cryptography guidance have
+                                                    been added. The threat model is now
+                                                    speciﬁed in the Discussion section.
+2]   The main contribution appears to be a        We have sharpened the statement of
+     CUDA implementation of Salsa20. GPU          contribution accordingly. As now stated in the
+     implementations of Salsa20, ChaCha20,        Novelty part of the Discussion section, the
+     and AES have already been widely studied.    contribution is not the CUDA port of Salsa20
+     The authors should clearly explain the       per se, but: (i) a quantum-resistance-aware
+     novelty of their optimization or             comparative framework evaluating Salsa20-
+     architectural improvements.                  256, AES-256-CTR, and ASCON-128a under
+                                                  identical GPU conditions across latency,
+                                                  throughput, energy, and memory; (ii) the
+                                                  resulting ﬁnding that Salsa20-256 uniquely
+                                                  combines minimal latency with a 2^256 (post-
+                                                  quantum ~128-bit) key space, which neither
+                                                  baseline achieves simultaneously; and (iii) an
+                                                  architectural analysis showing the 8192-block
+                                                  × 8-thread conﬁguration maximizes SM
+                                                  occupancy without register spilling.
+3]   The abstract mentions only histogram         Information entropy, adjacent-pixel
+     analysis. A comprehensive evaluation         correlation, NPCR and UACI (di erential
+     should include entropy, correlation, NPCR,   attack analysis), and key sensitivity are now
+     UACI, key sensitivity, di erential attack    reported for all three ciphers in Tables 8, 9,
+     analysis, randomness tests, and              and 10, and the Abstract has been revised to
+     discussion of known/chosen-plaintext         reﬂect this expanded evaluation rather than
+     attacks.                                     histogram analysis alone. A discussion of
+                                                  known-/chosen-plaintext attack resistance
+                                                  and a dedicated NIST randomness evaluation
+                                                  of the keystream are identiﬁed as future work.
+                                                  (See the note below)
+4]   The reported speedups (265× and 1381×)       Throughput is reported in Table 11. The
+     are promising, but the manuscript should     encryption and decryption times reported in
+     provide throughput, kernel execution time,   Tables 2–7 are kernel execution times
+     and clarify whether PCIe data transfer       measured with CUDA events, and PCIe data
+     overhead was included.                       transfer overhead is excluded from these
+                                                  ﬁgures; this is now stated explicitly in
+                                                  conclusion section where the 265× and 1381×
+                                                  speedups appear. (Encryption and decryption
+                                                  time are kernel execution time)
+5]   The manuscript should explain the threat     All four points are now addressed in the new
+     model for social media, compatibility with   Discussion section of the revised manuscript.
+     image compression, metadata protection,      The threat model (Section 6.3) speciﬁes that
+     and deployment considerations.               the social media platform is treated as
+                                                  honest-but-curious with respect to content
+                                                  conﬁdentiality, that no trust is placed in
+                                                  network intermediaries, that the sender and
+                                                  recipient are assumed to have established a
+                                                  shared key through a mechanism outside the
+                                                  scope of this paper, and that attacks on key
+                                                  conﬁdentiality, multi-party key management,
+                                                   and tra ic analysis are explicitly out of scope.
+                                                   Compatibility with image compression
+                                                   (Section 6.3) explains that ciphertext
+                                                   produced by the proposed scheme is
+                                                   statistically close to random noise (entropy ≈
+                                                   7.99–8.0 bits, uniform histogram) and is
+                                                   therefore inherently incompatible with lossy
+                                                   recompression such as JPEG; we
+                                                   demonstrate this empirically, showing that
+                                                   JPEG recompression at quality 75 causes
+                                                   severe, unrecoverable pixel corruption, and
+                                                   we discuss the resulting deployment
+                                                   requirement for lossless transport of
+                                                   encrypted content. Metadata protection
+                                                   (Section 6.3) clariﬁes that the proposed
+                                                   scheme encrypts pixel content only, and that
+                                                   image dimensions, EXIF metadata, and
+                                                   upload-level metadata (account identity,
+                                                   timestamp, ﬁle size) remain unprotected,
+                                                   requiring separate handling such as EXIF
+                                                   stripping and dimension standardization.
+                                                   Finally, deployment considerations (Section
+                                                   6.4) identify the components required for
+                                                   practical deployment — a client-side
+                                                   application or browser extension performing
+                                                   pre-upload encryption via a recompression-
+                                                   avoiding upload path, a secure key-
+                                                   management layer, EXIF stripping, and an
+                                                   authenticated encryption mode — and
+                                                   describe suitable deployment scenarios,
+                                                   including client-side pre-upload encryption
+                                                   on GPU/NPU-equipped mobile devices,
+                                                   ephemeral media in messaging applications,
+                                                   and bulk server-side encryption pipelines.
+6]   The classiﬁcation of Salsa20 as a             The lightweight classiﬁcation of Salsa20 is
+     lightweight cipher should be justiﬁed using   justiﬁed quantitatively against ASCON-128a -
+     memory usage, computational complexity,       the NIST Lightweight Cryptography
+     power consumption, and comparison with        standardization winner - and against AES-256-
+     established lightweight cryptographic         CTR as the conventional non-lightweight
+     algorithms.                                   reference. Memory usage and power
+                                                   consumption are reported for all three ciphers
+                                                   in Table 11 (rows 3–5: energy per encryption,
+                                                   energy e iciency, and memory usage), where
+                                                   Salsa20 shows energy e iciency (780.38
+                                                   MB/J) close to that of the NIST lightweight
+                                                   standard ASCON-128a (841.02 MB/J) and
+                                                   substantially better than AES-256-CTR (176
+                                                    MB/J), at comparable memory footprint (6.29
+                                                    MB for all three). Computational complexity is
+                                                    addressed in Section 6.2, which reports
+                                                    rounds-per-byte as a cipher-independent
+                                                    complexity measure: Salsa20 requires 0.31
+                                                    rounds per byte, versus 0.88 for AES-256-CTR
+                                                    and 1.50 for ASCON-128a, placing Salsa20's
+                                                    computational cost below even the dedicated
+                                                    lightweight standard. Taken together, Table 11
+                                                    and Section 6.2 support the LWC
+                                                    classiﬁcation with concrete, comparative
+                                                    measurements rather than by assertion.
+7]   How does the proposed method compare           We compared proposed method with AES-
+     with ChaCha20, AES-GCM, and Ascon?             256-ctr and Ascon128a.
+     Minor Comments
+     • Deﬁne the abbreviation LWC when ﬁrst         We place LWC long form in abstract.
+     introduced.
+     • Clarify the CUDA optimization strategy       We mentioned it and reason also discussed in
+     instead of stating only that CUDA reduces      discussion section.
+     computation time.
+     • Explain why the conﬁguration of 8192         It is mentioned in discussion section.
+     blocks and 8 threads was selected.
+     • Report encryption throughput in addition     It is mentioned in table 11.
+     to speedup.
+     • Improve the readability of the abstract by   Necessary changes done.
+     reducing repetition
+     Reviewer 3
+1]   Describe what is new and interesting about     We have addressed it in the Novelty
+     the scientiﬁc contribution and why this        subsection (Section 6.1) and the Comparison
+     implementation is new and better than the      with Existing Methods subsection (Section
+     previous CUDA implementations of               6.2) of the revised Discussion. The scientiﬁc
+     Salsa20.                                       contribution is not the CUDA port of Salsa20
+                                                    in isolation, but a quantum-resistance-aware
+                                                    comparative framework that evaluates
+                                                    Salsa20-256 alongside AES-256-CTR and
+                                                    ASCON-128a under identical GPU conditions,
+                                                    jointly reporting SM occupancy, power
+                                                    consumption, memory usage, and memory
+                                                    throughput for all three ciphers - a joint
+                                                    characterization not previously reported for
+                                                    GPU-based image encryption. Regarding why
+                                                    this implementation is new and better than
+                                                    previous CUDA implementations of Salsa20,
+                                                    speciﬁcally that of Khalid et al. (2013):
+                                                    Section 6.2 shows that the proposed method
+                                                    achieves higher e iciency through its rounds-
+                                                    per-byte structure (0.31 rounds/byte)
+                                                   combined with a manually tuned 8192-block
+                                                   × 8-thread kernel conﬁguration, which
+                                                   Section 6.1 shows maximizes streaming-
+                                                   multiprocessor occupancy without register
+                                                   spilling, unlike higher-thread-count
+                                                   conﬁgurations, which exhibit lower
+                                                   occupancy. This architectural tuning and the
+                                                   resulting quantum-resistance-aware trade-o
+                                                   characterization - showing Salsa20-256 is the
+                                                   only cipher among the three that
+                                                   simultaneously achieves minimal latency and
+                                                   satisﬁes the 128-bit post-quantum security
+                                                   margin - constitute the novel contribution
+                                                   beyond prior CUDA Salsa20 work.
+2]   Salsa20 is referred to in the title several   The revised manuscript now contains a
+     times as an image encryption algorithm        dedicated theoretical discussion of post-
+     that is resistant to quantum computing.       quantum cryptography in the second-last
+     The manuscript, however, does not contain     paragraph of Section 1 (Introduction):
+     any theoretic or experimental discussion      symmetric ciphers quantum attack
+     on post-quantum cryptography.                 applicable to a symmetric cipher is Grover's
+                                                   algorithm, which provides a quadratic
+                                                   speedup for key search and thereby reduces
+                                                   the e ective security of an n-bit key to
+                                                   approximately n/2 bits. Because this
+                                                   quadratic speedup is provably optimal - no
+                                                   quantum algorithm can search an
+                                                   unstructured space faster than Grover's
+                                                   bound (Bennett et al., 1997) - the resulting
+                                                   2^(n/2) security level is a hard mathematical
+                                                   ﬂoor rather than a current best-known
+                                                   estimate. For Salsa20-256, this yields
+                                                   approximately 128-bit post-quantum security,
+                                                   consistent with NIST's post-quantum
+                                                   guidance. This theoretical treatment is
+                                                   supported by Table 1, which situates Salsa20-
+                                                   256 alongside AES-256-CTR and ASCON-128a
+                                                   in terms of best-known classical cryptanalytic
+                                                   attacks and full-round status, and by Section
+                                                   6.1, which states the quantum-resistance
+                                                   claim precisely as a 128-bit post-quantum
+                                                   security margin rather than an unqualiﬁed
+                                                   assertion. As is standard for post-quantum
+                                                   claims about symmetric-key primitives, this
+                                                   argument is theoretical; no experimental
+                                                   quantum evaluation is possible on currently
+                                                   available hardware.
+3]   Some modern image encryption papers            Information entropy and correlation
+     assess: Information entropy, Correlation       coe icients are reported for all three ciphers
+     coe icients, NPCR, UACI, Key sensitivity,      in Tables 8, 9, and 10 (rows 1 and 3), with the
+     Chosen-plaintext attack (CPA), Known-          corresponding formulas given in Eqs. 9 and
+     plaintext attack (KPA), Information entropy,   12. NPCR and UACI (di erential attack
+     NIST randomness, Occlusion attack and          resistance) and key sensitivity are reported in
+     Cropping attack.                               the same tables (rows 4–5). The contiguous
+                                                    block cut-out and scattered random pixel loss
+                                                    robustness tests (Table row 7) constitute
+                                                    occlusion and cropping attack evaluations
+                                                    respectively; we have revised the manuscript
+                                                    to label them explicitly as such in Section 5.
+                                                    [A discussion of chosen-plaintext and known-
+                                                    plaintext attack resistance keep as future
+                                                    work] [A NIST SP 800-22 randomness
+                                                    evaluation of the raw keystream is identiﬁed
+                                                    as future work, as the extensively
+                                                    cryptanalyzed Salsa20 keystream generator's
+                                                    statistical properties are well established in
+                                                    the prior literature (Bernstein, 2008).](See the
+                                                    note below).
+4]   There should be a comparison made to:          The revised manuscript includes a full AES-
+     OpenMP implementations, OpenCL                 GPU comparison: AES-256-CTR implemented
+     implementations, ChaCha20 GPU                  in CUDA and evaluated under identical
+     implementations, AES-GPU                       conditions to Salsa20-256, covering
+     implementations. There are more details        execution time (Table 6), security metrics
+     about the optimal CUDA conﬁguration.           (Table 9), and throughput/energy/memory
+                                                    (Table 11). Regarding ChaCha20, we note that
+                                                    it shares Salsa20's ARX operations, state size,
+                                                    and round count, di ering only in the quarter-
+                                                    round wiring; its GPU performance
+                                                    characteristics are consequently expected to
+                                                    closely track those of Salsa20, and a
+                                                    dedicated implementation is identiﬁed as
+                                                    future work. Regarding OpenMP and OpenCL,
+                                                    our study is intentionally kept for future work,
+                                                    and we have added this scoping rationale to
+                                                    Section 6.2. Further detail on the optimal
+                                                    CUDA conﬁguration has been added to
+                                                    Section 6.1, which explains the 8192-block ×
+                                                    8-thread result architecturally: this
+                                                    conﬁguration maximizes streaming-
+                                                    multiprocessor occupancy without register
+                                                    spilling at ﬁxed total thread count, whereas
+                                                    higher-thread-count conﬁgurations exhibit
+                                                    reduced occupancy.
+5]   The manuscript ends with the conclusion       We thank the reviewer for this important
+     that 8192 blocks and 8 threads are            methodological point, and agree that an
+     optimum. But there is no architectural        empirical optimum requires architectural
+     explanation about: Occupancy, memory          support rather than observation alone.
+     latency and cache behavior. It should not     Section 6.1 of the revised manuscript now
+     be based on mere observation and must be      o ers a mechanistic explanation for the 8192-
+     supported by CUDA architecture analysis.      block × 8-thread result: at ﬁxed total thread
+                                                   count, this conﬁguration is stated to maximize
+                                                   streaming-multiprocessor occupancy without
+                                                   register spilling, while higher thread-per-block
+                                                   conﬁgurations reduce the number of resident
+                                                   blocks per SM.
+6]   The authors are encouraged to discuss and As suggested all three references are added in
+     appropriately cite relevant recent studies in introduction section.
+     introduction, such as:
+        1. "An improved ChaCha algorithm for
+           securing data on IoT devices", SN
+           Applied Sciences, which shows the
+           latest advances in the lightweight
+           stream cipher optimization for
+           resource-constrained devices.
+        2. “A proposed lightweight image
+           encryption using ChaCha with
+           hyperchaotic maps”, Periodicals of
+           Engineering and Natural Sciences
+           Open source preview, which results
+           in an e icient lightweight image
+           encryption framework based on
+           stream ciphers and chaotic systems
+           to provide higher security.
+        3. “A Partial Face Encryption in Real
+           World Experiences Based on
+           Features Extraction from Edge
+           Detection”, International Journal of
+           Interactive Mobile Technologies,
+           showing practical applications of
+           lightweight image encryption
+           techniques in a privacy preservation
+           environment in multimedia and
+           social media.
+7]   Performance should be evaluated on:           The revised manuscript evaluates the
+     di erent image resolutions, grayscale and     proposed method on two benchmark images
+     RGB images and multiple benchmark             spanning di erent resolutions and both
+     datasets.                                     grayscale and RGB content: the original 1.34
+                                                   MB grayscale airport image and the standard
+                                                   512 KB RGB Lenna benchmark image (Fig.
+                                                   16), with the latter's encryption and
+                                                        decryption results shown alongside the
+                                                        corresponding AES-256-CTR and ASCON-
+                                                        128a timings in Tables 6 and 7. Both images
+                                                        are processed correctly, and the results
+                                                        demonstrate that the proposed method
+                                                        operates consistently across resolution and
+                                                        colour mode. We acknowledge that a broader
+                                                        evaluation across multiple resolutions and
+                                                        additional benchmark datasets would further
+                                                        strengthen the generalizability of the results,
+                                                        and we identify this as future work in Section
+                                                        6.4 (Limitations). (JPEG images)
+ 8]       There are some ﬁgures (Figures 3-6) that      For visibility purpose they kept large.
+          are needlessly large and use up too much
+          space.
+ 9]       There are plenty of grammatical mistakes      Checked and corrected
+          in the manuscript. Professional editing of
+          English is needed.
+ 10]      Ensure that the variables used in the paper   Checked and corrected.
+          are used consistently and have the same
+          meaning.
+
+
+Note: NPCR and UACI is zero because pixel values are not depending on other pixel values for
+encryption and decryption. For encryption and decryption using GPU allocates 1 thread for
+particular number of bytes of data (depends on algorithm) due to this reason NPCR and UACI
+is zero.
+

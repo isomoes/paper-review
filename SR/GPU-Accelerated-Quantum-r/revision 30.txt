@@ -1,0 +1,1393 @@
+  GPU-Accelerated Quantum-resistant Image
+ Encryption for Social Media using Lightweight
+        Cryptographic Stream Cipher
+
+                   Digvijay Shinde1* and Arun M2*†
+1*
+   School of Electronics Engineering, Vellore Institute of Technology,
+        Tiruvalam Road, Vellore, 632014, Tamilnadu, India.
+2*
+   School of Electronics Engineering, Vellore Institute of Technology,
+        Tiruvalam Road, Vellore, 632014, Tamilnadu, India.
+
+
+                *Corresponding author(s). E-mail(s):
+       shinde.digvijay2025@vitstudent.ac.in; arunm@vit.ac.in;
+          †
+            These authors contributed equally to this work.
+
+
+                                   Abstract
+Exponential growth of image sharing on social media raises concerns about data
+privacy. Traditional algorithms like AES are resource intensive. There is a need
+for a Lightweight Cryptography algorithm (LWC). This paper presents a high
+speed, quantum-resistant Salsa20 (256-bit) stream cipher for image encryption
+using an NVIDIA GPU. Data parallelism using CUDA C reduces computa-
+tion time for Salsa20. Simulation results on NVIDIA Tesla T4 and GeForce
+RTX A4000 GPUs have massive speedup of 265x and 1381x over CPU execu-
+tions, respectively. The configuration 8192 blocks and 8 threads is identified and
+exhibits less computation time. The proposed accelerator has been validated by
+conducting histogram analysis, memory usage, power efficiency and throughput.
+This study reports a secure and time-efficient GPU-accelerated Salsa20 stream
+cipher for real-time social media image encryption.
+
+Keywords: CUDA, Parallel Processing, Image encryption, Salsa20, Lightweight
+Cryptography.
+
+
+
+
+                                        1
+1 Introduction
+In the digital era, images are extensively used for medical diagnosis, social media, and
+cloud data. With the growth of the internet world, image storage and transmission have
+increased. There is concern about data privacy, security, and unwanted access. Image
+encryption is a technique to hide image data in a scrambled form. The image contains
+more data than the text file in a single form. That’s why traditional algorithms are
+not suitable; it needs a different approach, like the LWC (Lightweight Cryptography)
+algorithm. LWC algorithms are less resource-hungry and work faster than traditional
+algorithms. One of the LWC stream ciphers is Salsa20. Salsa20 was designed by Daniel
+J. Bernstein in 2005.
+    Though the round functions of Salsa20 are suitable for parallel fine-grained accel-
+erators (GPU). This paper focuses on enhancing the performance of image encryption
+and decryption using quantum-resistant Salsa20 on GPU-based accelerators. The
+Salsa20 algorithm is parallelized in different ways to reduce the computation time.
+The 20-round Salsa20(256 bit) stream cipher is a very fast and efficient algorithm that
+is recommended as a quantum-resistant algorithm Panda and Chattopadhyay (2019).
+
+
+
+
+Fig. 1 Cryptography
+
+
+    As shown in 1, plain text or the original image is encrypted using the public key.
+Public key is available to everyone (authorized user of the system). Encrypted text or
+image decrypts using the private key. The private key is individual to each user. This
+text or image is transmitted over the channel. Sometimes, there may be an adversary
+on the channel that listens to the communication happening over the channel. Even
+if the adversary gets the information, it will not be able to decrypt the encrypted
+information because of the private key available to the individual user. Sender identifies
+if there is an unauthorized or unwanted user trying to access the information.
+    Lightweight Cryptography (LWC) has high security in the case of larger key sizes
+and a greater number of rounds. This is however usually more expensive to compute,
+especially in serial versions. Conversely, a higher level of performance is achievable by
+processing in parallel and by minimizing the number of rounds, although at a possible
+compromise in security. Thus, the three factors that are critical and interdependent
+in the design and analysis of LWC algorithms like Salsa20 are security, computational
+cost, and performance Nikitha et al. (2023).
+    K.H Kim and E.S Kim proposed the MBTRACK2-CUDA method. This method
+had no CPU-GPU communication. Communication overheads are eliminated by doing
+the entire tracking simulation on the GPU. The authors compared MBTRACK2 on
+a 12-core CPU against MBTRACK-CUDA on a GPU. They used RTX 4090 with
+
+
+                                            2
+24 GB GDDR6X VRAM Kim and Kim (2026). S.D Patil and P.P Bartakke pro-
+posed a novel method for real-time in-cabin monitoring. They achieved more than
+80% accuracy. They used the Jetson AGX Orin (64 GB) Development kit for the
+experiment. Simulation done using TensorRT and Pytorch Patil and Bartakke (2025).
+Chang et al. presented automatic exposure and centerline extraction in line laser
+scanning. They used a GPU accelerator for speed and accuracy improvement. The
+proposed method shows effectiveness for various materials. Their method shows an
+error of less than 0.01mm and reduces the extraction time upto 50%. They used
+an Intel I3600KF CPU and NVIDIA RTX 3060 GPU with 12GB memory Chang
+et al. (2026). Sorescu et al. compared different lightweight cryptography algorithms
+on Nordic Thingy:53(nRF5340). The best algorithm depended on the specific appli-
+cation. They suggested XChaCha20 as the best choice for bulk transmission Sorescu
+et al. (2025). Carrinho et al. proposed PIM(Processing-In-Memory) as a solution for
+the data movement bottleneck in neural network workloads. The author implemented
+MLP (Multilayer Perceptron) using UPMEM architecture, which gave 259x speedup
+in inference when compared with CPU and NVIDIA Jetson GPU under 3ms. This
+paper showed PIM’s potential for energy-efficient neural network inference in the edge
+AI world Carrinho et al. (2026). M.Zhou and D.Ye presented a CUDA-based binocular
+vision system for real-time high-speed pose measurement. They introduced a new local
+neighbourhood detection mechanism for redundancy filtering. This experiment, done
+on NVIDIA Jetson Xavier NX, resulted in 20x speedup over CPU. The experiment
+had 581fps processing with sub-millimeter accuracy, showing an edge over existing
+GPU approaches Zhou and Ye (2025). Z.Collins, G.De Luca, and Y. Chen investigated
+GPU-accelerated cloud computing as a replacement for CPU-based services. The nov-
+elty was an intelligent autoscaling system that maximizes utilization of a single GPU,
+reduces resource wastage, and costs. They tested GPU vs CPU performance over sci-
+entific computing, machine learning, and image processing. The result showed 3x to
+4x speedup Collins et al. (2025). This paper introduced StarPlat: A versatile DSL
+for graph analytics. StarPlat lets users specify a graph algorithm, and it generates
+efficient code for OpenMP, MPI, and CUDA. Paper novelty was a unified interme-
+diate representation that connected different parallel paradigms. They demonstrated
+one algorithm specification, which was efficiently implemented across heterogeneous
+architectures. This reduced stress on the domain expert who was not an HPC expert
+Behera et al. (2024).
+     1]This paper gave a linear combination of different random variables from multiple
+differentials to reduce the complexity of the attack.2] It gave mathematical optimiza-
+tion of PNBs (Probabilistic Neural Bits). It also showed that fixing PNBs to zero is
+the worst choice. These are the two novelties of the paper. Authors demonstrated the
+first-ever attack on 7.5-round Salsa20(128-bit key). They got an 18x faster recovery
+compared to previous work Dey et al. (2025). Keluskar et al. proposed a new parallel
+algorithm that solves a complex mathematical model of a nuclear reactor. This algo-
+rithm did many calculations using GPU computational power, making it 70x faster
+than previous methods. This was the first approach to use a high-speed parallel algo-
+rithm for specific nuclear reactor equations Keluskar et al. (2024). J.K Parkś and
+E.Y Parkś paper compared various cryptographic algorithms used for big data in the
+
+
+
+                                          3
+cloud. The HDFS (Hadoop Distributed File System) is used to store a large amount
+of data, but it has security risks. The authors proposed to use Salsa20 instead of AES
+(Advanced Encryption Standard). They proposed Salsa20 to manage encryption keys
+with Ranger Key Management Service (Ranger KMS). They did an experiment of dif-
+ferent data sizes using a 10-node Hadoop cluster. Salsa20 resulted in the best result
+among other algorithms like Blowfish and AES. Salsa20 achieved the avalanche effect
+at 56.7% in the experiment. This new work provided better confidentiality and authen-
+tication for cloud mobile storage Park and Park (2024). Victor Kebande introduced
+EChacha20, which had 36 rounds. EChacha20 is an improved version of Chacha20.
+EChacha20 was slightly slower and used more memory than Chacha20, but it was
+more secure Kebande (2023). In this de Loaysa Babiano et al. (2023) paper, live
+forensic techniques to avoid ransomware attacks utilized Salsa20 for data encryption.
+This investigation provided a framework for memory forensics to decrypt victim data
+without ransom payment. Alavani et al. proposed a novel approach to predict the
+power consumption of CUDA kernels using machine learning. This method had PFEA
+(Program Feature Extraction Algorithm), which identified 15 impactful program fea-
+tures using Kepler, Maxwell, and Volta NVIDIA architectures. This model considered
+launch parameters block and grid size to understand how they impacted occupancy and
+power Alavani et al. (2023). This paper Basnet et al. (2022) proposed In-Plane Seis-
+mic FWI (Full Wave Inversion) by implementing and comparing OpenMP, OpenACC,
+and CUDA. GPGPU (General Purpose Graphics Processing Unit) helped to process
+massive data for earth modelling. Amala Nikitha G. et al. proposed a new hybrid
+algorithm using Salsa20 and AES-GCM (Galois/Counter Mode) to secure an IoT envi-
+ronment. Salsa20 has high speed, and AES-GCM has robust authentication Nikitha
+et al. (2023). This paper Choi and Seo (2022) proposed PIPO (Plug In Plug Out),
+a lightweight block cipher for HPC CPU and GPU architectures. PIPO is designed
+to run on an 8-bit processor. To implement PIPO on GPU, the author uses CUDA
+C and PTX inline assembly. The result shows AVX-512 was 10 times faster than the
+standard code. The GPU version got a high speed of 110.08 Gbps. The paper inves-
+tigated cancer tissue heterogeneity from qPCR gene expression data. They utilized
+the Metropolis-Hastening algorithm to estimate different cell types. The parallelized
+model helps doctors and scientists to analyse hundreds of genes at once using CUDA
+Chaudhuri et al. (2022).
+    This paper used a special method, the Improved Related Cipher Attack, to find
+the secret key for the Salsa20 stream cipher. The author compared the results for 12
+rounds and 10 rounds. Their method has a time complexity of 296, which is faster
+than previous attacks. This paper helps to analyse the security limits of Salsa and
+Chacha Kakumani et al. (2022). This paper investigated the way to enhance the per-
+formance of a stream cipher using simultaneous task and data parallelism. Salsa20
+encryption speed was improved by 64% when moving to a quad-core from a single
+core. This platform was very flexible; encryption on dual core and encryption on quad
+core were possible Almanasra (2019). Gorbenko et al. proposed a comparative anal-
+ysis of modern stream ciphers. They measured throughput and tested entropy. The
+results proved ciphers were safe and efficient to work on modern CPUs Gorbenko et al.
+(2019). This paper proposed an improved related cipher attack on 256-bit Salsa20.
+
+
+
+                                          4
+They developed a new exhaustive search algorithm to find missing keywords. This
+new method is faster than the previous; the new one has a time complexity of 2193.58
+Ding (2019). This paper Panda and Chattopadhyay (2019) developed a PKM (Privacy
+Key Management) environment to enhance the security of IEEE 802.16e (WiMAX).
+They used the Salsa20 stream cipher to encrypt data. They used DH (Diffie-Hellman)
+to create secret keys for both the user and the base station. RNG (Random Num-
+ber Generator) ensured keys were unique and impossible to predict. This framework
+stopped replay attacks and eavesdropping. Norouzi et al. proposed a modified image
+encryption algorithm, Salsa20 hash function, which had high security with a two-round
+diffusion process. They used a 512-bit secret key for Salsa20 Norouzi et al. (2014).
+This paper Khalid et al. (2013) proposed a Salsa20 stream cipher implementation on
+a GPU using autotuning. They achieved a high speed of 43.44 GBps using NVIDIA
+GeForce GTX 590. They showed two different approaches: data parallelism and func-
+tional parallelism for the round function of the Salsa20 stream cipher. D. J. Bernstein
+proposed a new LWC algorithm, Salsa20, with a 256-bit secret key. The paper showed
+that Salsa20/20 is faster than AES. There are fewer rounds versions, which are fast
+but hard to hack. The best-known attacks require a massive number of mathematical
+operations to discover the key Bernstein (2008).
+    Recent developments on multimedia security pose the urgent requirement for light-
+weight image encryption schemes which can process a large amount of data in a short
+period of time for communicating over unprotected networks Mahdi et al. (2021, 2020).
+To achieve strong security, researchers have suggested models that use the ChaCha
+stream cipher and 4D hyperchaotic maps for creating large and vast key spaces, which
+are hard to crack by brute force Mahdi et al. (2020). Researchers have successfully used
+partial encryption methods for platforms that process large amounts of visual data,
+and thus do not need to encrypt full images, in order to optimize processing times
+Azeez et al. (2023). In particular, Susan edge detection is used in conjunction with
+Dlib face detection to extract features and only encrypt sensitive facial parts which
+reduces the computational overhead Azeez et al. (2023). Structural improvements
+are also being made to existing stream ciphers for constrained devices, for example
+the ”Super ChaCha” algorithm which adds additional z-zig zag rotations and matrix
+updates in the dynamic phase of the algorithm to make cryptographic diffusion more
+effective Mahdi et al. (2021).
+    Above table 1 identifies best known attacks on Salsa20, AES-26-CTR, and
+ASCON128a. For Salsa20 attacks reach 7.5/20 rounds with 62% margin. For AES256
+CTR attacks reach full 14 rounds with no real margin. For ASCON 128a attacks reach
+7/12 rounds with 42% margin.
+    Grover’s algorithm gives a quadratic speedup for unstructured search. The only
+quantum attack applicable to a symmetric cipher like Salsa20 is Grover’s algorithm
+for brute-forcing the key. Grover’s algorithm can be used to implement a quantum
+version of brute-force key search that reduces the effective security of an n-bit key to
+approximately n/2 bits. Grover’s quadratic speedup is provably optimal; no quantum
+algorithm can search an unstructured space faster than Grover’s bound, a result proven
+Bennett et al. (1997). This makes the ”2n/2 ” argument a hard mathematical floor
+rather than a currently best-known estimate.
+
+
+
+                                           5
+Table 1 Best known cryptanalytic attacks and full-round status
+
+ Cipher             Full rounds   Best attack reaches                          Full-round status
+ Salsa20-256            20        7.5 rounds Dey et al. (2025)                 Unbroken - no attack
+                                                                               past 8/20 rounds
+                                                                               exists
+ AES-256-CTR            14        Full 14 rounds, but via biclique attack at   Unbroken in any
+                                  2254.4 - only marginally below the 2256      practical sense
+                                  brute-force bound Grover (1996); Ben-
+                                  nett et al. (1997); Bogdanov et al. (2011)
+ ASCON-128a             12        7 of 12 rounds (initialization only)         Unbroken
+                                  National Institute of Standards and
+                                  Technology (2018); Peng et al. (2025)
+
+
+
+
+   According to the literature survey, different uses like nuclear reactor equation,
+WiFiMax security, In-Plane Seismic Full Wave Inversion of Salsa20 and CUDA have
+been analyzed. Based on these findings, an image encryption method with Salsa20
+to be used in social media has been implemented on the GPU. The proposed work
+contains the implementations of the Salsa20 algorithm on the CPU and GPU platform.
+Comparison of both the approaches are done using different number of block and
+thread combinations.
+
+2 Fundamentals of Salsa20
+Salsa20 is an LWC stream cipher. It explains using the figure 2 below.
+
+
+
+
+Fig. 2 Salsa20 Block Diagram
+
+
+
+                                               6
+    Depending on the particular variant being used, a key length of 16 bytes (128-bit)
+or 32 bytes (256-bit) may be used in the Salsa20 algorithm. A nonce, a number that
+is used only once, is used to guarantee the creation of a unique keystream; in Salsa20
+the nonce size is 8 bytes. The algorithm also needs 8-byte block counter as an input.
+Therefore, the key, nonce, and block counter are the necessary inputs of the Salsa20
+encryption process.
+    The algorithm is designed in two main parts, the expansion function, also known
+as internal state matrix initialization, and the Salsa20 core function. The expansion
+function performs state matrix assignment. Details of the expansion function are pro-
+vided below in the paper. Salsa20 core function contains row round and column round
+functions. Functions have 10 row rounds and 10 column rounds functions i.e total of
+20 rounds. This function creates confusion and diffusion, same as hash function. Out-
+put of a Salsa20 core function (64 bytes) and 64 bytes of input data are XORed to get
+the ciphertext (64 bytes). The salsa20 has three parts:
+1. Expansion function, i.e., internal state matrix
+2. Round function
+3. XOR function
+
+2.1 Expansion function or internal state matrix
+It is a 4x4 matrix of 32-bit (4 bytes) words. Total 16 elements, i.e., 16x4=64 bytes in
+length. The state matrix has four main components.
+1. Constant: It is also called ”Constant words”. It has 4 elements of 4 bytes each.
+   Constant words are generally a string ”expand 32-byte k”.
+2. Key: Key size is 128 bits or 256 bits.
+3. Nonce: Nonce is a unique number used once per message.
+4. Counter: It indicates the position number, which is 8 bytes. This can go to any
+   point in the stream.
+
+                                     c0 k 0 k 1 k 2
+                                     k 3 c1 no n1
+                                     b0 b1 c2 k 4
+                                     k 5 k 6 k 7 c3
+   In the above matrix, k is the key, n is the nonce, c is a constant, and b is the
+counter. This matrix indicates the internal state matrix.
+
+2.2 Quarter Round
+Quarter round has 32-bit words as input. It follows three operations on 32 bits.
+1. Add
+2. Rotate
+3. XOR
+
+
+
+
+                                           7
+   This is called the ARX operation. If a, b, c, and d are 4 input elements, then the
+quarter function processes as b, c, d, a sequentially.
+
+                                 b = b ⊕ ((a + d) ≪ 7)                                 (1)
+
+                                 c = c ⊕ ((b + a) ≪ 9)                                 (2)
+
+                                 d = d ⊕ ((c + b) ≪ 13)                                (3)
+
+                              a = a ⊕ ((d + c) ≪ 18)                                   (4)
+   Quarter function has 4 column rounds and 4 row rounds.
+
+2.3 Number of rounds
+The Salsa20/20 variant uses 20 mixing rounds whereas Salsa20/8 uses 8 mixing rounds;
+other variants with fewer rounds are also defined. These mixing rounds are associated
+with multiple applications of the round functions of the algorithm that increase data
+mixing to a higher degree. The higher the number of rounds, the more extensive is the
+interaction between data elements so that every word in the state will affect all the
+others. In the Salsa20/20 design, the 20 mixing rounds are allocated in both column
+and row operations. This process of diffusion is reinforced in this way, so that a single-
+bit change in the key spreads over the entire state matrix and has a significant effect
+on the output produced.
+
+2.4 Generation of Keystream
+After performing 20 rounds, the final step is to make the last results irreversible.
+1. Add Initial State: The original internal state matrix is added word-for-word to the
+   final mixed matrix. By doing this, the attacker prevented running around backward
+   to get the initial state.
+2. Output: The result is 64 bytes block of the keystream.
+    To encrypt data of any arbitrary length, the block counter in the original internal
+state matrix gets increased with every next block. This algorithm is repeated again
+and again to produce the following 64-byte segments of the keystream which are then
+used in succession to process the whole message.
+
+2.5 Encryption/ Decryption
+Salsa20 is symmetric in nature, which means for encryption and decryption, the same
+process is followed.
+
+                        Ciphertext = P laintext ⊕ Keystream                            (5)
+
+                     P laintext = Ciphertext ⊕ Keystream                               (6)
+By using XOR twice, the original state can be achieved.
+
+
+                                            8
+3 CPU-Based Serial Implementation of
+  Salsa20(128-bit)
+
+
+
+
+Fig. 3 Flowchart of serial Salsa20(128-bit)
+
+
+    The flowchart 3 shows encryption and decryption of the Salsa20 (128-bit) algo-
+rithm and it is divided into five different stages. The first step, input and validation,
+is where the user input is received through the command line. Four arguments are
+mandatory; failure to provide will end the program. The second stage is the stage of
+the implementation of initialization. At this stage, an input image is loaded and its
+size is calculated according to the number of pixels in total. There is also the ini-
+tialization of the cryptographic key and nonce and the allocation of memory to store
+encrypted and decrypted pixel data. The third step is the encryption step, which is
+implemented with the salsa20 crypt 128 function. In the fourth step, decryption of
+the encrypted pixel data that was received in the fourth step is done using the same
+function. The last step is concerned with validation and cleanup. The output of the
+
+
+                                              9
+decryption is then compared to the original image to check whether the image was
+decrypted correctly; and in case the outcome of the decryption matches the original
+image, the process of decryption is considered successful, and in case there is a mis-
+match, an error is reported. This is followed by the release of all the dynamically
+allocated memory to complete the process.
+    The salsa20 crypt 128 function generates an output known as a keystream which
+is then mixed with pixel data blocks by an XOR operation of bits as shown in the
+figure 4. This operation has three key steps, which include block processing, core
+operations and output generation. The block processing stage starts with the input
+image being split into 64-byte blocks and then the internal state matrix is set. The
+quarter-round operation is used in the core operation stage which uses both column
+and row operation. 20 rounds are carried out, with 10 row rounds, and 10 column
+rounds. The encrypted output is the result of the XOR operation of the data produced
+in the core operations with the keystream of the same size. The process is repeated
+on every block until every block containing data has been processed.
+
+
+
+
+Fig. 4 Flowchart of salsa20 crypt 128 Function
+
+
+
+
+                                                 10
+3.1 Pseudo code
+
+Algorithm 1 Serial Salsa20-128 Image Encryption and Decryption
+Require: Input PNG image Iin , 128-bit key K , 64-bit nonce N
+Ensure: Encrypted image Ienc and decrypted image Idec
+ 1: Load PNG image Iin and decode into pixel array P
+ 2: Extract image dimensions: width W , height H , channels C
+ 3: L ← W × H × C
+ 4: Allocate memory for Penc and Pdec
+ 5: Copy P to Penc
+ 6: ▷ Encryption Phase
+ 7: Start encryption timer
+ 8: Penc ← salsa20 crypt 128(Penc , L, K, N )
+ 9: Stop encryption timer
+10: Store Penc as PNG image Ienc
+11: ▷ Decryption Phase
+12: Copy Penc to Pdec
+13: Start decryption timer
+14: Pdec ← salsa20 crypt 128(Pdec , L, K, N )
+15: Stop decryption timer
+16: Store Pdec as PNG image Idec
+
+
+
+
+Algorithm 2 Serial Salsa20-128 Image Encryption and Decryption (Part 2)
+ 1: ▷ Verification Phase
+ 2: if P = Pdec then
+ 3:     Output “Decryption successful”
+ 4: else
+ 5:     Output “Decryption failed”
+ 6: end if
+ 7: Free allocated memory
+ 8: return
+
+
+
+
+                                      11
+Algorithm 3 Salsa20-128 Cryptographic Transformation(salsa20 crypt 128)
+Require: Data buffer D, length L, key K , nonce N
+Ensure: Transformed data buffer D (encrypted/decrypted)
+ 1: Define constant σ ← “expand 16-byte k”
+ 2: ctr ← 0
+ 3: for i ← 0 to ⌈L/64⌉ − 1 do
+ 4:     ▷ Construct initial state
+ 5:     S0 ← InitializeState(σ, K, N, ctr)
+ 6:     ▷ Generate keystream block
+ 7:     KS ← salsa20 block(S0 )
+ 8:     ▷ Apply XOR operation
+ 9:     for j ← 0 to min(63, L − 64i − 1) do
+10:         D[64i + j ] ← D[64i + j ] ⊕ KS [j ]
+11:     end for
+12:     ctr ← ctr + 1
+13: end for
+14: return D
+
+
+
+
+Algorithm 4 Salsa20 Block Function(salsa20 block)
+Require: Initial state S0 [16]
+Ensure: Final state S [16]
+ 1: for j ← 0 to 15 do
+ 2:    S [j ] ← S0 [j ]
+ 3: end for
+ 4: for i ← 1 to 10 do
+ 5:    ▷ Column Round
+ 6:    Apply column-wise quarter-round transformations on S
+ 7:    ▷ Row Round
+ 8:    Apply row-wise quarter-round transformations on S
+ 9: end for
+10: for j ← 0 to 15 do
+11:    S [j ] ← (S [j ] + S0 [j ]) mod 232
+12: end for
+13: return S
+
+
+
+
+                                      12
+Algorithm 5 Quarter Round Transformation
+Require: Four 32-bit words (a, b, c, d)
+Ensure: Updated words (a, b, c, d)
+ 1: b ← b ⊕ ROTL(a + d, 7)
+ 2: c ← c ⊕ ROTL(b + a, 9)
+ 3: d ← d ⊕ ROTL(c + b, 13)
+ 4: a ← a ⊕ ROTL(d + c, 18)
+ 5: return (a, b, c, d)
+
+
+
+
+Algorithm 4 is integrated within algorithm 3 ,and algorithm 5 is a subcomponent
+of algorithm 4. Algorithms 3, 4, and 5, in turn, are the components of algorithm 1.
+When using the serial application of the Salsa20 (128-bit) algorithm the pixel array
+representation of the input image is first obtained. Memory is then made available to
+enable the process of encryption and decryption. After this memory allocation, the
+encryption phase is activated.
+    In the encryption process, a number of operations are carried out, and they are the
+state matrix initiation, column round function, row round function, and the XOR of
+the input data and the keystream generated. The decryption stage has a comparable
+sequence of steps. When the encryption and decryption is completed, a verification
+process is done by comparing the decryption image to the original input image. In case
+the two images are similar, the decryption process is successful. The following series
+of operations outlines the operation principle of the serial Salsa20 (128-bit) algorithm.
+
+4 GPU-Accelerated Parallel Implementation for
+  Salsa20(128-bit)
+The flowchart 5 demonstrates six different phases: loading of the image, setup,
+encryption, kernel execution, decryption and cleanup. The flow of the program imple-
+mentation is as follows and is detailed below, based on a similar structure as the
+flowchart. The setup phase entails the data initialisation, memory allocation to the
+GPUs and transferring the data to the GPUs as explained in the execution flow. The
+encryption phase will involve the encryption process and the kernel execution phase
+just like the decryption phase involves the decryption and the kernel execution phase
+as shown in the flowchart. The loading of images, setting up, and clearing are run seri-
+ally but encryption, kernel execution, and decryption are run concurrently. The main
+function takes care of the image loading, setup and cleanup processes and the other
+stages are carried out in the kernel of the parallel program.
+    The program has the image encryption and decryption algorithm with Salsa20-128
+stream cipher run on the GPU (CUDA). The flow proceeds as follows:
+
+4.0.1 Start and Image Loading
+        • Load the input image with stbi load.
+        • The value of width (w), height (h), and channels (c) is obtained.
+
+
+                                           13
+Fig. 5 Flowchart of Parallel Salsa20(128-bit)
+
+
+         • In case of failure to load the image, an error message is displayed, and the
+           program is ended.
+
+4.0.2 Data Initialization
+After successful loading:
+         • The overall size of the data is calculated as the data length = w × h.
+         • The key is initialized as a 128-bit key (4 x 32-bit).
+         • A nonce (64-bit) and a counter are also initialized.
+   These parameters are needed in the generation of the Salsa20 keystream.
+
+4.0.3 GPU Memory Allocation
+cudaMalloc allocates memory to the GPU for the following:
+         • Key (d key)
+
+
+                                                14
+        • Nonce (d nonce)
+        • Image buffer (d buf)
+   Checking of errors is done with the help of the checkCuda function.
+
+4.0.4 Data Transfer to GPU
+cudaMemcpy transfers key, nonce, and image data from the host (CPU) to the device
+(GPU).
+
+4.0.5 Kernel Configuration
+The execution parameters are computed as follows:
+        • One Salsa20 block (64 bytes) is processed by each thread.
+        • The total number of blocks (total Salsa blocks) is calculated.
+        • The grid configuration of CUDA is set:
+          – threads per block
+          – num blocks
+This guarantees effective parallel processing.
+
+4.0.6 Encryption Phase
+1.Kernel Launch
+Computed grid dimensions are passed to the kernel salsa20 128 xor kernel.
+
+2.Kernel Execution (Parallel)
+Each CUDA thread performs the following:
+
+Thread Index Calculation
+        • Calculates the unique thread ID and offset of the data.
+
+Boundary Check
+        • In case the offset is bigger than the data size, the thread exits.
+
+State Initialization
+        • Seeds the Salsa20 internal state with:
+          – Constants
+          – Key
+          – Nonce
+          – Counter
+
+
+
+
+                                          15
+Keystream Generation
+        • Calls salsa20 core() which:
+          – Makes 10 double rounds (column round and row round).
+          – Generates a 64-byte block of keystream.
+
+XOR Operation
+        • Image data is XORed with the keystream:
+                       Ciphertext = P laintext ⊕ Keystream                      (7)
+
+Post-Processing
+        • CUDA events are used to measure the kernel execution time.
+        • Encrypted data is copied back to the host.
+        • Store the ciphered image.
+
+4.0.7 Decryption Phase
+Kernel Relaunch
+The kernel is loaded in the same conditions.
+
+Decryption Logic
+        • Being a stream cipher, Salsa20 encryption and decryption are performed in
+          the same way:
+
+                            P laintext = Ciphertext ⊕ Keystream                 (8)
+
+        • Once more, the application of XOR recovers the original image.
+
+Output
+        • Decryption is done back to the host.
+        • The initial picture is reconstructed and stored as new decrypted.jpeg.
+        • Decryption record time is recorded.
+
+4.0.8 Cleanup and Termination
+        • cudaFree is used to release GPU memory.
+        • Host memory is released.
+        • CUDA events are destroyed.
+        • The program displays “Decryption successful” and ends.
+
+
+
+
+                                         16
+4.1 Pseudocode
+
+Algorithm 6 Parallel code for Salsa20-128 Image Encryption and Decryption Using
+CUDA
+Require: Input image I
+Ensure: Encrypted image E and decrypted image D
+ 1: Load image I using stbi load
+ 2: if I = NULL then
+ 3:     print “Image load failed”
+ 4:     return
+ 5: end if
+ 6: data len ← width × height
+ 7: Initialize key K [4] ← 128-bit key
+ 8: Initialize nonce N [2]
+ 9: base counter ← 0
+10: Allocate GPU memory: d key , d nonce, d buf
+11: Copy K to d key (Host → Device)
+12: Copy N to d nonce (Host → Device)
+13: Copy image I to d buf (Host → Device)
+14: threads per block ← 8
+                      data len
+15: total blocks ← ⌈     64    ⌉
+                         total blocks
+16: num blocks ← ⌈ threads per block ⌉
+17: ▷ Encryption Phase
+18: Start timer
+19: Launch Kernel salsa20 128 xor kernel(d key , d nonce, base counter , d buf ,
+    data len)
+20: Stop timer
+21: Copy d buf to E (Device → Host)
+22: Save E as encrypted image
+23: ▷ Decryption Phase
+24: Start timer
+25: Launch Kernel salsa20 128 xor kernel(d key , d nonce, base counter , d buf ,
+    data len)
+26: Stop timer
+27: Copy d buf to D (Device → Host)
+28: Save D as decrypted image
+29: Free GPU and CPU memory
+30: return
+
+
+
+
+                                      17
+Algorithm 7 CUDA Kernel for Salsa20 XOR Operation
+Require: Key K , Nonce N , Counter C , Buffer buf , Data length L
+Ensure: Processed buffer (encrypted/decrypted)
+ 1: tid ← blockIdx.x × blockDim.x + threadIdx.x
+ 2: of f set ← tid × 64
+ 3: if of f set ≥ L then
+ 4:     return
+ 5: end if
+ 6: Initialize state[16]
+ 7: Set constants in state
+ 8: Load key K into state (repeated)
+ 9: ctr ← C + tid
+10: state[6] ← lower 32 bits of ctr
+11: state[7] ← upper 32 bits of ctr
+12: state[8], state[9] ← N
+13: keystream ← salsa20 core(state)
+14: max i ← min(64, L − of f set)
+15: for i ← 0 to max i − 1 do
+16:     buf [of f set + i] ← buf [of f set + i] ⊕ keystream[i]
+17: end for
+18: return
+
+
+
+
+Algorithm 8 Salsa20 Core Function
+Require: Input state in[16]
+Ensure: 64-byte keystream
+ 1: for i ← 0 to 15 do
+ 2:    x[i] ← in[i]
+ 3: end for
+ 4: for r ← 1 to 10 do
+ 5:    ▷ Column Round
+ 6:    Perform rotation, addition, XOR on columns
+ 7:    ▷ Row Round
+ 8:    Perform rotation, addition, XOR on rows
+ 9: end for
+10: for i ← 0 to 15 do
+11:    x[i] ← x[i] + in[i]
+12:    Convert x[i] to 4 bytes (little-endian)
+13: end for
+14: return keystream
+
+
+
+
+The   encryption   and   decryption   processes   are     both    done   using
+salsa20 128 xor kernel on the GPU, thus allowing parallel execution to enhance
+
+
+                                       18
+performance. Conversely, tasks like loading images, and transfer of data between
+the host (CPU) and the device (GPU) are done sequentially on the CPU. The
+salsa20 128 xor kernel and salsa core functions are part of the encryption and
+decryption process. Initialization of the internal state matrix which is considered to
+be 16 elements in number is carried out by the salsa20 128 xor kernel function.
+The salsa core operation executes the major transformations as the row round
+operations and column round operations. When the encryption and the decryption
+processes are finished, the processed data is sent back to the CPU. Lastly, the cor-
+rectness of the implementation is checked by comparing the decrypted image and the
+original image to find out whether they are the same.
+
+
+
+
+Fig. 6 Encryption kernel execution model
+
+
+    The program execution starts from the main function as shown in fig 6. After
+encryption kernel launch the parallel execution starts. The parallel execution of encryp-
+tion kernel has state matrix initialization, quarter round function and XOR function.
+Quarter round function is device function. Device function in kernel is executed by
+one thread serially at a time, but many threads can there in kernel. So it is paral-
+lel execution. After encryption kernel execution main function executes serially. Like
+this decryption kernel will execute. This encryption kernel execution model shows how
+parallel CUDA program is working.
+    The time complexity of serial program is O(N) where N= width x height x channel.
+The time complexity of parallel program is O(N/P) where P= number of GPU threads.
+Theoretically time complexity of parallel program is less than the serial program.
+
+5 Results
+For Salsa20(128-bit), the serial program code is written in the C language. For simula-
+tion 1.34 Mb standard image of airport is used. Result shows encryption time of 91.337
+msec and decryption time of 89.208 msec using Intel(R) Xeon(R) CPU. Another result
+shows encryption time of 232.03 msec and decryption time of 230.44 msec using Intel-
+i9-14900K CPU. The result is verified using a standard airport image. The output is
+shown below.
+    The histogram of a plaintext image indicates that the pixel intensity values are non-
+uniform 8. They are concentrated on one side. The histogram of an encrypted image
+is uniform. This indicates the pixel intensities of an encrypted image are uniformly
+distributed like random noise 9. The histogram shows that the encryption scheme is
+
+
+                                           19
+Fig. 7 Simulation result of serial program for Salsa20(128-bit)
+
+
+
+
+Fig. 8 Histogram of airport input(plaintext) image(Serial)
+
+
+resistant to statistical attacks. The Salsa20(256bit) will have the same computation
+time as Salsa20 (128-bit).
+    Parallel Salsa20 (128 bit) and Salsa20 (256 bit) have the airport standard image as
+input. The kernel execution time is measured for encryption and decryption separately.
+This is measured and arranged in tabular form below. For the execution of programs,
+an NVIDIA Tesla T4 and an NVIDIA GeForce RTX A4000 are used.
+    From all tables 2 3 4 5, it is interpreted that the total number of threads is the
+number of blocks x number of threads = 65536. Even the total number of threads is
+constant, each combination of the number of blocks and number of threads shows a
+different execution time. The 8192 number of blocks and 8 number of threads have
+better encryption and decryption time compared to other combination.
+
+
+
+                                                20
+Fig. 9 Histogram of airport encrypted image(Serial)
+
+
+  Table 2 Parallel Salsa20(256-bit) using NVIDIA Tesla T4 GPU
+
+  Number of Blocks    Number of threads     Encryption time in msec   Decryption time in msec
+  32768               2                     0.734                     0.605
+  16384               4                     0.460                     0.405
+  8192                8                     0.344                     0.288
+  4096                16                    0.445                     0.375
+  2048                32                    0.492                     0.395
+  1024                64                    0.528                     0.485
+  512                 128                   0.767                     0.421
+  256                 256                   0.751                     0.429
+  128                 512                   0.807                     0.653
+  64                  1024                  0.887                     0.539
+
+
+
+
+Fig. 10 Simulation results of parallel program for Salsa20
+
+
+                                               21
+ Table 3 Parallel Salsa20(128-bit) using NVIDIA Tesla T4 GPU
+
+ Number of Blocks     Number of threads     Encryption time in msec   Decryption time in msec
+ 32768                2                     0.751                     0.705
+ 16384                4                     0.431                     0.363
+ 8192                 8                     0.368                     0.300
+ 4096                 16                    0.519                     0.469
+ 2048                 32                    0.686                     0.474
+ 1024                 64                    0.589                     0.542
+ 512                  128                   0.602                     0.523
+ 256                  256                   0.716                     0.643
+ 128                  512                   0.730                     0.651
+ 64                   1024                  0.814                     0.736
+
+
+
+
+ Table 4 Parallel Salsa20(256-bit) using NVIDIA GeForce RTX A4000 GPU
+
+ Number of Blocks     Number of threads     Encryption time in msec   Decryption time in msec
+ 32768                2                     0.311                     0.316
+ 16384                4                     0.196                     0.197
+ 8192                 8                     0.168                     0.172
+ 4096                 16                    0.189                     0.203
+ 2048                 32                    0.240                     0.332
+ 1024                 64                    0.258                     0.254
+ 512                  128                   0.244                     0.248
+ 256                  256                   0.246                     0.342
+ 128                  512                   0.268                     0.274
+ 64                   1024                  0.340                     0.432
+
+
+
+
+Fig. 11 Histogram of airport input (plaintext) image(Parallel)
+
+
+                                               22
+ Table 5 Parallel Salsa20(128-bit) using NVIDIA GeForce RTX A4000 GPU
+
+ Number of Blocks     Number of threads    Encryption time in msec   Decryption time in msec
+ 32768                2                    0.326                     0.316
+ 16384                4                    0.195                     0.197
+ 8192                 8                    0.166                     0.174
+ 4096                 16                   0.194                     0.198
+ 2048                 32                   0.242                     0.329
+ 1024                 64                   0.254                     0.344
+ 512                  128                  0.263                     0.344
+ 256                  256                  0.242                     0.336
+ 128                  512                  0.260                     0.266
+ 64                   1024                 0.345                     0.342
+
+
+
+
+Fig. 12 Histogram of airport encrypted image(Parallel)
+
+
+
+
+Fig. 13 NVIDIA Nsight Compute timeline [NVIDIA RTX A4000] for data transfer from host to
+device and encryption kernel execution
+
+
+                                              23
+Fig. 14 NVIDIA Nsight Compute timeline [NVIDIA RTX A4000] for decryption kernel execution
+and data transfer from device to host
+
+
+
+
+Fig. 15 NVIDIA Nsight Compute timeline [NVIDIA RTX A4000] for memory cleanup
+
+
+
+    The figures 13 14 15 show the execution flow of the parallel Salsa20 program. The
+program execution stages are data transfer from host to device, encryption kernel
+execution, decryption kernel execution, data transfer from device to host, and memory
+cleanup. The timeline is useful to identify program bottleneck. It is tool used to identify
+the program component execution time and flow. With the timeline, it is possible
+to identify the different components of parallel Salsa20. To show different stages of
+program nvtx tool used. This tool allow developers to mark and label regions in
+timeline.
+
+
+
+
+                                            24
+Fig. 16 Lenna image encryption and decryption
+
+
+   The results also tested for standard lenna coloured image for encryption and
+decryption showed in 16. The size of image is 512 KB.
+
+ Table 6 Parallel AES-256-CTR using NVIDIA GeForce RTX A4000 GPU
+
+ Number of Blocks    Number of threads   Encryption time in msec   Decryption time in msec
+ 131072              2                   1.708                     1.694
+ 65536               4                   1.456                     1.453
+ 32768               8                   1.409                     1.409
+ 16384               16                  1.379                     1.379
+ 8192                32                  1.340                     1.344
+ 4096                64                  1.343                     1.341
+ 2048                128                 1.342                     1.339
+ 1024                256                 1.372                     1.369
+ 512                 512                 1.377                     1.376
+ 256                 1024                1.509                     1.514
+
+
+
+
+ Table 7 Parallel ASCON128a using NVIDIA GeForce RTX A4000 GPU
+
+ Number of Blocks    Number of threads   Encryption time in msec   Decryption time in msec
+ 131072              2                   1.441                     1.398
+ 65536               4                   0.750                     0.710
+ 32768               8                   0.398                     0.361
+ 16384               16                  0.229                     0.189
+ 8192                32                  0.145                     0.104
+ 4096                64                  0.145                     0.106
+ 2048                128                 0.144                     0.107
+ 1024                256                 0.150                     0.107
+ 512                 512                 0.179                     0.140
+ 256                 1024                0.210                     0.169
+
+
+
+
+                                            25
+    The encryption and decryption time for respective thread is mentioned in above
+table. The security metrics parameter like information entropy, chi square histogram
+uniformity, NPCR, UACI, key sensitivity, key space analysis and robustness are
+calculated and noted below table.
+    Information entropy is calculated using
+
+                                       255
+                                       X
+                           H (m) = −         P (mi ) log2 P (mi )                     (9)
+                                       i=0
+
+
+where mi is the i-th possible pixel value (message symbol) and P (mi ) is its probability
+of occurrence.
+    NPCR and UACI is calculated using
+                     P
+                       i,j D (i, j )
+          NPCR =                     × 100%, D(i, j ) = 1 if C1 (i, j ) ̸= C2 (i, j ) (10)
+                       W ×H
+
+                               1   X |C1 (i, j ) − C2 (i, j )|
+                   UACI =                                      × 100%                (11)
+                             W × H i,j          255
+where C1 and C2 are the two ciphertext images differing by a single pixel in the
+plaintext, W and H are the image width and height, and D(i, j ) marks pixels that
+differ between the two ciphertexts.
+
+                                          cov(x, y )
+                                 rxy = p      p                                     (12)
+                                          D(x) D(y )
+where x and y are the values of two adjacent pixels, cov(x, y ) is their covariance, and
+D(x) and D(y ) are the variances of x and y respectively.
+   Adjacent pixel correlation measures how similar pixel‘s value is right next to it.
+NPCR and UACI is calculated by replacing 1 bit in the original plaintext image. For
+key sensitivity we need to replace 1 bit in key of original. Key space algorithm. Key
+space analysis measures how many distinct keys attacker have to try to break the
+encryption using brute force.
+   Salsa20-256 is the fast, energy-efficient, and quantum-resistant by referring all
+tables above.
+
+6 Discussion
+6.1 Novelty and Advantages
+Novelty. This paper provides a quantum-resistance-aware comparative framework
+for lightweight cryptographic algorithms in image encryption. For each algorithm—
+Salsa20, AES-256-CTR, and ASCON-128a-SM occupancy, power consumption, mem-
+ory usage, and memory throughput are reported. The Salsa20 GPU implementation
+achieves better performance through a manually tuned kernel configuration: the
+“8192×8” configuration maximizes SM occupancy without spilling registers, whereas
+higher thread-count configurations exhibit lower occupancy.
+
+
+                                             26
+     Table 8 Security metrics parameter of Salsa20
+
+      Sr. No   Security metrics parameter            Value
+        1      Information entropy                   7.99
+                                                     Chi-square = 246.69 with
+        2      Chi-square histogram uniformity       63.40% probability of
+                                                     uniform histogram
+                                                     Horizontal = 0.0291
+        3      Adjacent-pixel correlation            Vertical = −0.0017
+                                                     Diagonal = −0.0072
+        4      NPCR and UACI                         0%
+                                                     NPCR = 99.61%
+        5      Key sensitivity
+                                                     UACI = 33.46%
+        6      Key space analysis                    2256
+               Robustness
+               i) Gaussian noise                     14.88 dB
+        7      ii) Salt & pepper noise               24.38 dB
+               iii) Contiguous block cut-out noise   17.59 dB
+               iv) Scattered random pixel loss       20.39 dB
+
+
+
+
+     Table 9 Security metrics parameter of AES-256-CTR
+
+      Sr. No   Security metrics parameter            Value
+        1      Information entropy                   7.99
+                                                     Chi-square = 234.20 with
+        2      Chi-square histogram uniformity       82.06% probability of
+                                                     uniform histogram
+                                                     Horizontal = 0.0235
+        3      Adjacent-pixel correlation            Vertical = 0.0043
+                                                     Diagonal = −0.0023
+        4      NPCR and UACI                         0
+                                                     NPCR = 99.61%
+        5      Key sensitivity
+                                                     UACI = 33.42%
+        6      Key space analysis                    2256
+               Robustness
+               i) Gaussian noise                     7.61 dB
+        7      ii) Salt & pepper noise               7.36 dB
+               iii) Contiguous block cut-out noise   7.41 dB
+               iv) Scattered random pixel loss       7.40 dB
+
+
+
+
+     Adavantages. The key benefit of the proposed approach over existing approaches
+is its higher speed and security margin, which meets the quantum-resistance criterion.
+The proposed implementation employs fixed, manually tuned block/thread grid con-
+figurations, which require recalibration for images of significantly different sizes rather
+than adapting automatically. When compared to the AES-256-CTR and ASCON-128a
+GPU implementations, Salsa20-256 is the cipher that achieves minimal encryption
+latency while providing the 128-bit post-quantum security margin required by NIST
+
+
+                                               27
+    Table 10 Security metrics parameter of ASCON128a
+
+       Sr. No     Security metrics parameter               Value
+          1       Information entropy                      7.99
+                                                           Chi-square = 231.60 with
+          2       Chi-square histogram uniformity          85.08% probability of
+                                                           uniform histogram
+                                                           Horizontal = 0.0224
+          3       Adjacent-pixel correlation               Vertical = 0.0080
+                                                           Diagonal = −0.0064
+          4       NPCR and UACI                            0
+                                                           NPCR = 99.61%
+          5       Key sensitivity
+                                                           UACI = 33.50%
+          6       Key space analysis                       2128
+                  Robustness
+                  i) Gaussian noise                        7.61 dB
+          7       ii) Salt & pepper noise                  7.36 dB
+                  iii) Contiguous block cut-out noise      7.42 dB
+                  iv) Scattered random pixel loss          7.40 dB
+
+
+
+
+Table 11 Computational performance comparison of Salsa20, AES-256-CTR, and ASCON-128a
+
+ Sr. No       Parameter                                  Salsa20     AES-256-CTR      ASCON-128a
+   1          Encryption throughput                  7,980 MB/s        1,000 MB/s      9,310 MB/s
+   2          Decryption throughput                  7,790 MB/s        1,000 MB/s     12,880 MB/s
+   3          Energy per encryption                      5.37 mJ          23.83 mJ         4.98 mJ
+   4          Energy efficiency                     780.38 MB/J          176 MB/J     841.02 MB/J
+   5          Memory usage                              6.29 MB           6.29 MB         6.29 MB
+   6          GPU speedup (on NVIDIA A4000)                1381x             26.86x          71.31x
+
+
+
+
+guidance on Grover’s algorithm resistance. Although AES-256-CTR and ASCON-128a
+also meet this requirement, both are computed at a higher cost.
+
+6.2 Comparison with Existing Methods
+The Salsa20-256 GPU accelerator’s algorithmic structure is favourable for massive
+parallelism. It requires 0.31 rounds per byte, whereas AES-256-CTR requires 0.88
+rounds per byte and ASCON-128a requires 1.50 rounds per byte, and these advantages
+are magnified under GPU parallelization. The proposed method is more efficient than
+the previous GPU-based implementation of Salsa20 Khalid et al. (2013), and the
+execution time is minimized when the kernel is optimized with an 8192-block × 8-
+thread configuration.
+
+
+
+
+                                                  28
+6.3 Threat Model, Compatibility with Image Compression
+    and Metadata protection
+Threat Model. This work assumes a threat model where the social media platform
+is trusted (or honest-but-curious) for the confidentiality of the media content, but
+no trust is placed in any network intermediary or any third party that accesses the
+platform. This paper concerns only the encryption primitive, not key distribution. The
+sender and intended recipient(s) are assumed to have previously shared a secret key
+using a key exchange protocol that is beyond the scope of this paper (e.g., an out-
+of-band protocol, or a key-management service in companion mode). The platform is
+assumed to correctly pass through the ciphertext bytes it receives, although in practice
+this is often untrue, as most platforms automatically recompress or resize uploaded
+media - a threat to correctness addressed directly below. Explicitly out of scope are
+attacks on key confidentiality, multi-party group key management, forward secrecy
+across key rotations, and traffic-analysis or timing-based inference attacks.
+    Compatibility with Image Compression. The encrypted data is statistically
+similar to white noise ( entropy = 7.99-8.0 bits, chi-square uniformity testing), and is,
+therefore, unsuitable for any lossy compression schemes, like JPEG, or lossy WebP,
+which require a certain amount of spatial and statistical redundancy that encryption
+is the key to removing. We empirically established this in our robustness testing :
+re-compression at JPEG quality 75 of an encrypted image results in significant and
+unrecoverable pixel corruption. The practical impact of this is for deployment: most
+social media platforms will automatically recompress images uploaded through a typi-
+cal photo upload endpoint and this would silently corrupt any payload with pixel-level
+encryption. It will be necessary either to upload encrypted images that are Bytes
+Lossless (e.g., not via photo-specific upload API but as a generic file/document attach-
+ment, or via lossless formats like PNG if supported), or to have a dedicated client
+application or browser extension that intercepts and re-encrypts media via a channel
+the platform does not recompress. Any resizing the platform does is equally lethal as it
+would destroy the mapping of pixels to keystream that the cipher relies on; encrypted
+images would have to be sent at a fixed resolution anyway, one which the platform is
+supposed to preserve.
+    Metadata protection. The proposed scheme only encrypts the image informa-
+tion (the content of the pixels) and not the image metadata. Even though the actual
+image content is protected, the dimensions and number of the image channels are visi-
+ble in the (unencrypted) file container header, and are necessary to correctly assemble
+the pixel buffer for decryption. Similarly, EXIF (camera model, GPS data, etc.) at the
+pixel level would require stripping or hiding and re-encrypting if it was to be uploaded,
+a task we do not perform in this work. Metadata of account identity, file upload time,
+and file size are not hidden from the platform or any network observer and are a close
+approximation to raw resolution × channel count for near-random ciphertext. This
+metadata is orthogonal and requires EXIF stripping, dimension padding/standard-
+ization to reduce resolution fingerprinting, and encrypted or out-of-band metadata
+channels, which we see as needed supplements to this work but are not the subject of
+this document.
+
+
+
+                                           29
+6.4 Limitations and Deployment Considerations
+Limitations. The generated ciphertext is not authenticated; production use would
+require an authenticated mode to prevent undetected tampering or bit-flipping attacks.
+Robustness testing reveals that lossy recompression (e.g., JPEG) destroys the cipher-
+text, since encrypted images approximate random noise and are designed to be
+incompressible. This limits deployability to platforms or pipelines that ensure lossless
+transport of encrypted content.
+    Deployment Considerations. Based on this, there are a number of challenges
+for the practical deployment of the proposed scheme: (1) a client-side application or
+browser extension to encrypt before upload, with an upload path that avoids platform
+side recompression or dimension resizing; (2) need for an extra secure key-management
+and key distribution layer, as key exchange is not part of this work; (3) need for EXIF
+stripping and dimension aware handling before encrypting to reduce the amount of
+metadata that can be leaked; and (4) need for an authenticated encryption mode
+or integrity tag verification because this scheme only provides confidentiality, and
+not integrity, before the upload. The throughput and low latency capabilities of the
+scheme described in Section 5 make it suitable for use in various applications such
+as client-side pre-upload encryption on a GPU or NPU, ephemeral-media features in
+messaging applications, and bulk server-side encryption pipelines for platforms that
+wish to preserve lossless transport for encrypted content.
+
+7 Conclusion
+There are two hardware configurations. The former system comes with an Intel Xeon
+CPU operating at 2.00 GHz and an NVIDIA Tesla T4 graphics card having 16 GB
+memory. The second is an Intel Core i9-14900K CPU with a speed of 3.20 GHz and
+an NVIDIA GeForce RTX A4000 graphics card, and 16 GB of RAM, as well. The
+suggested parallel implementation has been shown to be quite accelerated with a 265x
+and 1381x speedup(without PCIe data transfer overload) of the parallel implementa-
+tion compared to the serial version on the first and second systems, respectively, and
+shows performance enhancement.
+    The histogram of the ciphertext image has a more balanced distribution of intensity
+level, which means that it is less vulnerable to the statistical attacks. This consis-
+tency implies that the encryption technique is effectively spreading pixel values hence
+enhancing the robustness of security.
+    In parallel CUDA C implementation, a difference in the time of encryption and
+decryption are noted, despite the overall number of computational threads being the
+same. Such differences may occur due to optimized Streaming Multiprocessor (SM),
+effective hiding of memory latency, and efficient resource management. The perfor-
+mance of the GPUs does not always increase in a linear fashion; rather, an ideal setup
+is determined. In particular, the most time-efficient setup of 8192 number of blocks
+and 8 threads per block is the fastest of the tested configurations, which is observed
+on both hardware configuration.
+    The above simulation is done for the data parallelism. The future scope of
+research involves functional parallelism for the quarter-round function and verifying
+
+
+                                          30
+the results with proper image validation. With this simulation, it is expected to reduce
+computation time.
+    This paper shows a quantum-resistant Salsa20 (256-bit) image encryption algo-
+rithm for parallel systems. The suggested solution works in speeding up image
+encryption in resource-limited systems like handheld devices. Nowadays, social net-
+works, such as WhatsApp, use the AES algorithm to encrypt images, which is
+potentially even more time-consuming. In this respect, Salsa20 is an attractive alter-
+native as it is efficient and has less computational overhead. As the level of GPU
+functionality is becoming more widely available in modern handheld devices, the pos-
+sibility to further minimize the encryption time is high, and thus, this method can be
+very relevant to social media applications that require real-time image encryption. The
+limitation of this work is that the programmer has to adjust total number of threads
+according to size of the image to get the correct encryption and decryption.
+
+8 Funding
+The project received no funding from government or private institute.
+
+9 Data availability
+The data generated and used in this study is included in the paper. The CUDA and
+serial C codes are available at https://github.com/Digvijay1411/Salsa20.
+
+10 Acknowledgment
+The authors gratefully acknowledge the Vellore Institute of Technology (VIT), Vel-
+lore, and Advanced Micro-controller lab for providing the facilities and technical
+support necessary to conduct the experimental work, thereby enabling the effective
+development, simulation, and validation of the project.
+
+References
+Alavani G, Desai J, Saha S, et al (2023) Program analysis and machine learning-
+  based approach to predict power consumption of cuda kernel. ACM Transactions
+  on Modeling and Performance Evaluation of Computing Systems 8(4). https://doi.
+  org/10.1145/3603533
+
+Almanasra S (2019) Parallel platform for supporting stream ciphers over multi-core
+  processors. International Journal of Advanced Computer Science and Applications
+  10(11):181–190. https://doi.org/10.14569/IJACSA.2019.0101125
+
+Azeez RA, Jamil AS, Mahdi MS (2023) A partial face encryption in real world expe-
+  riences based on features extraction from edge detection. International Journal of
+  Interactive Mobile Technologies 17(7):69 – 81. https://doi.org/10.3991/ijim.v17i07.
+  38753, cited by: 9; All Open Access, Gold Open Access
+
+
+
+                                          31
+Basnet MB, Anas M, Rizvi ZH, et al (2022) Enhancement of in-plane seismic full
+  waveform inversion with cpu and gpu parallelization. Applied Sciences 12(17). https:
+  //doi.org/10.3390/app12178844
+
+Behera N, Kumar A, T ER, et al (2024) Starplat: A versatile dsl for graph analytics.
+  Journal of Parallel and Distributed Computing 194. https://doi.org/10.1016/j.jpdc.
+  2024.104967
+
+Bennett CH, Bernstein E, Brassard G, et al (1997) Strengths and weaknesses of quan-
+  tum computing. SIAM Journal on Computing 26(5):1510–1523. https://doi.org/10.
+  1137/S0097539796300933
+
+Bernstein DJ (2008) The salsa20 family of stream ciphers. In: Lecture Notes in
+  Computer Science, pp 84–97, https://doi.org/10.1007/978-3-540-68351-3 8
+
+Bogdanov A, Khovratovich D, Rechberger C (2011) Biclique cryptanalysis of the
+  full AES. In: Advances in Cryptology – ASIACRYPT 2011, Lecture Notes
+  in Computer Science, vol 7073. Springer, pp 344–371, https://doi.org/10.1007/
+  978-3-642-25385-0 19
+
+Carrinho P, Moghadaspour H, Ferraz O, et al (2026) An experimental exploration
+  of in-memory computing for multi-layer perceptrons. Journal of Signal Processing
+  Systems 98(1). https://doi.org/10.1007/s11265-025-01974-7
+
+Chang Z, Mei X, Xia Z, et al (2026) Line laser scanning with automatic exposure and
+ cuda acceleration. Measurement 261. https://doi.org/10.1016/j.measurement.2025.
+ 119979
+
+Chaudhuri A, Mohanty AK, Satpathy M (2022) A parallelizable model for analyzing
+ cancer tissue heterogeneity. IEEE/ACM Transactions on Computational Biology
+ and Bioinformatics 19(4):2039–2048. https://doi.org/10.1109/TCBB.2021.3085894
+
+Choi H, Seo SC (2022) Efficient parallel implementations of pipo block cipher on
+ cpu and gpu. IEEE Access 10:85995–86007. https://doi.org/10.1109/ACCESS.2022.
+ 3198707
+
+Collins Z, Luca GD, Chen Y (2025) Gpu-accelerated cloud computing services and
+  performance evaluation. Simulation Modelling Practice and Theory 144. https://
+  doi.org/10.1016/j.simpat.2025.103181
+
+Dey S, Leander G, Sharma NK (2025) Improved key recovery attacks on reduced-
+  round salsa20. Designs, Codes and Cryptography 93(1):243–262. https://doi.org/
+  10.1007/s10623-024-01522-7
+
+Ding L (2019) Improved related-cipher attack on salsa20 stream cipher. IEEE Access
+  7:30197–30202. https://doi.org/10.1109/ACCESS.2019.2892647
+
+
+
+
+                                         32
+Gorbenko I, Kuznetsov A, Gorbenko Y, et al (2019) Studies on statistical analysis and
+ performance evaluation for some stream ciphers. International Journal of Computing
+ 18(1):82–88
+
+Grover LK (1996) A fast quantum mechanical algorithm for database search. In: Pro-
+  ceedings of the Twenty-Eighth Annual ACM Symposium on Theory of Computing
+  (STOC ’96). ACM, pp 212–219, https://doi.org/10.1145/237814.237866
+
+Kakumani KCD, Singh K, Karthika SK (2022) Improved related-cipher attack on salsa
+ and chacha: revisited. International Journal of Information Technology 14(3):1535–
+ 1542. https://doi.org/10.1007/s41870-022-00904-1
+
+Kebande VR (2023) Extended-chacha20 stream cipher with enhanced quarter round
+  function. IEEE Access 11:114220–114237. https://doi.org/10.1109/ACCESS.2023.
+  3324612
+
+Keluskar YC, Singhaniya NG, Vyawahare VA, et al (2024) Solution of nonlinear
+  fractional-order models of nuclear reactor with parallel computing: Implementation
+  on gpu platform. Annals of Nuclear Energy 195. https://doi.org/10.1016/j.anucene.
+  2023.110134
+
+Khalid A, Paul G, Chattopadhyay A (2013) New speed records for salsa20 stream
+ cipher using an autotuning framework on gpus. In: Lecture Notes in Computer
+ Science, pp 189–207, https://doi.org/10.1007/978-3-642-38553-7 11
+
+Kim KH, Kim ES (2026) Cuda-based gpu-only computation for efficient tracking sim-
+  ulation of single and multi-bunch collective effects. Nuclear Science and Techniques
+  37(1). https://doi.org/10.1007/s41365-025-01814-0
+
+de Loaysa Babiano LF, Macfarlane R, Davies SR (2023) Evaluation of live forensic
+  techniques, towards salsa20-based cryptographic ransomware mitigation. Forensic
+  Science International: Digital Investigation 46. https://doi.org/10.1016/j.fsidi.2023.
+  301572
+
+Mahdi MS, Azeez RA, Hassan NF (2020) A proposed lightweight image encryp-
+ tion using chacha with hyperchaotic maps. Periodicals of Engineering and Natural
+ Sciences 8(4):2138 – 2145. Cited by: 28
+
+Mahdi MS, Hassan NF, Abdul-Majeed GH (2021) An improved chacha algorithm for
+ securing data on iot devices. SN Applied Sciences 3(4). https://doi.org/10.1007/
+ s42452-021-04425-7, cited by: 49; All Open Access, Gold Open Access
+
+National Institute of Standards and Technology (2018) Post-quantum cryptography
+  FAQs. https://csrc.nist.gov/projects/post-quantum-cryptography/faqs, accessed
+  2026
+
+
+
+
+                                          33
+Nikitha GA, Kathrine GJW, Duthie CR, et al (2023) Hybrid cryptographic algorithm
+  to secure internet of things. In: Proceedings of the 7th International Conference
+  on Intelligent Computing and Control Systems (ICICCS), pp 1556–1562, https:
+  //doi.org/10.1109/ICICCS56967.2023.10142709
+
+Norouzi B, Seyedzadeh SM, Mirzakuchaki S, et al (2014) A novel image encryption
+ based on hash function with only two-round diffusion process. Multimedia Systems
+ 20(1):45–64. https://doi.org/10.1007/s00530-013-0314-4
+
+Panda PK, Chattopadhyay S (2019) A modified pkm environment for the security
+  enhancement of ieee 802.16e. Computer Standards and Interfaces 61:107–120. https:
+  //doi.org/10.1016/j.csi.2018.06.002
+
+Park JK, Park EY (2024) Performance comparison of cryptographic algorithms for
+  big data stored in cloud. Nanotechnology Perceptions 20(S1):193–203. https://doi.
+  org/10.62441/nano-ntp.v20iS1.17
+
+Patil SD, Bartakke PP (2025) High performance gpu strategies for real-time in-cabin
+  monitoring. IEEE Access 13:201545–201564. https://doi.org/10.1109/ACCESS.
+  2025.3637900
+
+Peng S, Hu K, He J, et al (2025) Improved key recovery attacks of ascon. In: Patra
+  A (ed) Topics in Cryptology – CT-RSA 2025. Springer Nature Switzerland, Cham,
+  pp 123–146
+
+Sorescu TG, Chiriac VM, Stoica MA, et al (2025) Comparative performance analysis of
+  lightweight cryptographic algorithms on resource-constrained iot platforms. Sensors
+  25(18). https://doi.org/10.3390/s25185887
+
+Zhou M, Ye D (2025) High-performance pose measurement based on cuda. Concur-
+  rency and Computation: Practice and Experience 37(25-26). https://doi.org/10.
+  1002/cpe.70319
+
+
+
+
+                                         34
+

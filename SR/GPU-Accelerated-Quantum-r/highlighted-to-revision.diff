@@ -1,0 +1,155 @@
+--- "submission/Highlighted manuscript.txt"	2026-08-26 15:44:13.914184192 +0800
++++ "submission/revision 30.txt"	2026-08-26 15:44:13.971227359 +0800
+@@ -528,32 +528,32 @@
+ stream cipher run on the GPU (CUDA). The flow proceeds as follows:
+ 
+ 4.0.1 Start and Image Loading
+-         Load the input image with stbi load.
+-         The value of width (w), height (h), and channels (c) is obtained.
++        • Load the input image with stbi load.
++        • The value of width (w), height (h), and channels (c) is obtained.
+ 
+ 
+                                            13
+ Fig. 5 Flowchart of Parallel Salsa20(128-bit)
+ 
+ 
+-          In case of failure to load the image, an error message is displayed, and the
++         • In case of failure to load the image, an error message is displayed, and the
+            program is ended.
+ 
+ 4.0.2 Data Initialization
+ After successful loading:
+-          The overall size of the data is calculated as the data length = w × h.
+-          The key is initialized as a 128-bit key (4 x 32-bit).
+-          A nonce (64-bit) and a counter are also initialized.
++         • The overall size of the data is calculated as the data length = w × h.
++         • The key is initialized as a 128-bit key (4 x 32-bit).
++         • A nonce (64-bit) and a counter are also initialized.
+    These parameters are needed in the generation of the Salsa20 keystream.
+ 
+ 4.0.3 GPU Memory Allocation
+ cudaMalloc allocates memory to the GPU for the following:
+-          Key (d key)
++         • Key (d key)
+ 
+ 
+                                                 14
+-         Nonce (d nonce)
+-         Image buffer (d buf)
++        • Nonce (d nonce)
++        • Image buffer (d buf)
+    Checking of errors is done with the help of the checkCuda function.
+ 
+ 4.0.4 Data Transfer to GPU
+@@ -562,9 +562,9 @@
+ 
+ 4.0.5 Kernel Configuration
+ The execution parameters are computed as follows:
+-         One Salsa20 block (64 bytes) is processed by each thread.
+-         The total number of blocks (total Salsa blocks) is calculated.
+-         The grid configuration of CUDA is set:
++        • One Salsa20 block (64 bytes) is processed by each thread.
++        • The total number of blocks (total Salsa blocks) is calculated.
++        • The grid configuration of CUDA is set:
+           – threads per block
+           – num blocks
+ This guarantees effective parallel processing.
+@@ -577,13 +577,13 @@
+ Each CUDA thread performs the following:
+ 
+ Thread Index Calculation
+-         Calculates the unique thread ID and offset of the data.
++        • Calculates the unique thread ID and offset of the data.
+ 
+ Boundary Check
+-         In case the offset is bigger than the data size, the thread exits.
++        • In case the offset is bigger than the data size, the thread exits.
+ 
+ State Initialization
+-         Seeds the Salsa20 internal state with:
++        • Seeds the Salsa20 internal state with:
+           – Constants
+           – Key
+           – Nonce
+@@ -594,41 +594,41 @@
+ 
+                                           15
+ Keystream Generation
+-         Calls salsa20 core() which:
++        • Calls salsa20 core() which:
+           – Makes 10 double rounds (column round and row round).
+           – Generates a 64-byte block of keystream.
+ 
+ XOR Operation
+-         Image data is XORed with the keystream:
++        • Image data is XORed with the keystream:
+                        Ciphertext = P laintext ⊕ Keystream                      (7)
+ 
+ Post-Processing
+-         CUDA events are used to measure the kernel execution time.
+-         Encrypted data is copied back to the host.
+-         Store the ciphered image.
++        • CUDA events are used to measure the kernel execution time.
++        • Encrypted data is copied back to the host.
++        • Store the ciphered image.
+ 
+ 4.0.7 Decryption Phase
+ Kernel Relaunch
+ The kernel is loaded in the same conditions.
+ 
+ Decryption Logic
+-         Being a stream cipher, Salsa20 encryption and decryption are performed in
++        • Being a stream cipher, Salsa20 encryption and decryption are performed in
+           the same way:
+ 
+                             P laintext = Ciphertext ⊕ Keystream                 (8)
+ 
+-         Once more, the application of XOR recovers the original image.
++        • Once more, the application of XOR recovers the original image.
+ 
+ Output
+-         Decryption is done back to the host.
+-         The initial picture is reconstructed and stored as new decrypted.jpeg.
+-         Decryption record time is recorded.
++        • Decryption is done back to the host.
++        • The initial picture is reconstructed and stored as new decrypted.jpeg.
++        • Decryption record time is recorded.
+ 
+ 4.0.8 Cleanup and Termination
+-         cudaFree is used to release GPU memory.
+-         Host memory is released.
+-         CUDA events are destroyed.
+-         The program displays “Decryption successful” and ends.
++        • cudaFree is used to release GPU memory.
++        • Host memory is released.
++        • CUDA events are destroyed.
++        • The program displays “Decryption successful” and ends.
+ 
+ 
+ 
+@@ -1147,15 +1147,15 @@
+ tion (the content of the pixels) and not the image metadata. Even though the actual
+ image content is protected, the dimensions and number of the image channels are visi-
+ ble in the (unencrypted) file container header, and are necessary to correctly assemble
+-the pixel buffer for decryption. Similarly, EXIF (camera model, GPS data, etc.) at
+-the pixel level would require stripping or hiding and re-encrypting if it was to be
+-uploaded, a task we do not perform in this work. Metadata of account identity, file
+-upload time, and file size are not hidden from the platform or any network observer
+-and are a close approximation to raw resolution × channel count for near-random
+-ciphertext. This metadata is orthogonal and requires EXIF stripping, dimension
+-padding/standardization to reduce resolution fingerprinting, and encrypted or out-of-
+-band metadata channels, which we see as needed supplements to this work but are
+-not the subject of this document.
++the pixel buffer for decryption. Similarly, EXIF (camera model, GPS data, etc.) at the
++pixel level would require stripping or hiding and re-encrypting if it was to be uploaded,
++a task we do not perform in this work. Metadata of account identity, file upload time,
++and file size are not hidden from the platform or any network observer and are a close
++approximation to raw resolution × channel count for near-random ciphertext. This
++metadata is orthogonal and requires EXIF stripping, dimension padding/standard-
++ization to reduce resolution fingerprinting, and encrypted or out-of-band metadata
++channels, which we see as needed supplements to this work but are not the subject of
++this document.
+ 
+ 
+ 
