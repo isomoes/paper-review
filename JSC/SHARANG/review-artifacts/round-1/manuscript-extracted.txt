@@ -1,0 +1,682 @@
+TEMPLATE                                                                                                                                        1
+
+
+
+
+          SHARANG: A Heterogeneous CPU–GPU
+        Accelerated, Security-Hardened ML-KEM-768
+         Implementation for ARM–CUDA Platforms
+
+    Hemraj Shobharam Lamkuche , Pon Harshavardhanan , Krishna Kumar Singh, and Bharat Raghuvanshi
+
+
+
+   Abstract—This paper presents SHARANG, a heterogeneous                     particularly ARM-based systems-on-chip (SoCs) that power
+CPU–GPU implementation of ML-KEM-768 (FIPS 203) for                          edge computing, IoT gateways, and autonomous vehicles.
+NVIDIA Jetson ARM–CUDA platforms. The implementation                            The efficient implementation of ML-KEM for these plat-
+features three acceleration tiers: (1) a portable C baseline with a
+provably safe lazy-reduction NTT requiring zero forward Barrett              forms presents three simultaneous challenges: (1) low-latency
+reductions; (2) an ARM NEON SIMD backend achieving 1.75–                     single-operation performance for interactive protocols such
+8.1× primitive-level speedups through exact 32-bit vectorized                as TLS handshakes; (2) high-throughput batch processing
+Montgomery and Barrett reductions; and (3) a CUDA GPU                        for server workloads handling hundreds of concurrent con-
+backend enabling batch processing of up to 512 simultaneous                  nections; and (3) robustness against physical side-channel
+KEM operations at 3.1× throughput versus the sequential CPU.
+Six security hardening features – including shuffled NTT for                 attacks inherent in exposed deployment environments. Ex-
+SPA resistance, algebraic fault detection, and NIST SP 800-                  isting implementations typically address only one of these
+90B are integrated at zero measurable runtime cost through                   requirements: pq-crystals reference [7] prioritizes portability,
+a novel data-derived shuffle seeding technique. On an ARM                    wolfSSL [8] adds platform-specific assembly, and masked
+Cortex-A78AE with NVIDIA Orin GPU, the fully hardened                        implementations [9] focus on side-channel resistance at sig-
+SHARANG NEON build achieves KeyGen in 73 µs, Encaps in
+72 µs, and Decaps in 85 µs—5%, 15%, and 21% faster than the                  nificant performance cost.
+pq-crystals reference, respectively. In batch mode, the CUDA                    ARM SoCs with integrated GPUs (such as the NVIDIA
+backend processes 256 KeyGen operations in 6.6 ms (3.1× GPU                  Jetson family) offer a unique opportunity for heterogeneous
+speedup) and 256 Encaps in 10.4 ms (2.4×). All outputs are                   acceleration: the CPU handles latency-sensitive single opera-
+verified bit-exact against the NIST reference through all Known              tions while the GPU provides throughput for batch processing.
+Answer Test (KAT) vectors.
+                                                                             The unified memory architecture on these platforms eliminates
+   Index Terms—Post-quantum cryptography, ML-KEM-768,                        the PCIe transfer overhead that makes GPU cryptography
+FIPS 203, NTT, ARM NEON, CUDA, heterogeneous computing,                      impractical on discrete GPUs, fundamentally changing the
+side-channel countermeasures.
+                                                                             performance economics.
+                                                                                This paper presents SHARANG1 , a heterogeneous ML-
+                         I. I NTRODUCTION                                    KEM-768 implementation offering three acceleration tiers on
+                                                                             the NVIDIA Jetson Orin platform:
+T    HE imminent threat of quantum computing to classical
+     public-key cryptography has driven the standardization
+of post-quantum cryptographic (PQC) algorithms by NIST,
+                                                                                1) Portable scalar C with lazy-reduction NTT (0 forward,
+                                                                                   3 inverse Barrett reductions versus 7/7 in the refer-
+culminating in FIPS 203 (ML-KEM) [1], FIPS 204 (ML-                                ence), division-free compression, and optional Karatsuba
+DSA) [2], and FIPS 205 (SLH-DSA) [3] in August 2024. ML-                           basemul.
+KEM, derived from CRYSTALS-Kyber [4], is the designated                         2) ARM NEON SIMD with vectorized NTT butterfly,
+algorithm for post-quantum key encapsulation and has already                       Montgomery/Barrett reduction, and polynomial arith-
+been deployed in Chrome and AWS TLS 1.3 handshakes [5],                            metic, achieving 10–22% single-operation speedup over
+[6].                                                                               the pq-crystals reference.
+   The transition to post-quantum cryptography is accelerating:                 3) CUDA GPU batch processing with 9-way parallel
+the NSA’s CNSA 2.0 advisory mandates PQC adoption for                              SHAKE-128 matrix generation and full KEM pipeline
+national security systems by 2030, and the IETF has stan-                          parallelization, delivering up to 3.1× batch throughput.
+dardized ML-KEM for TLS 1.3 via RFC9794. This urgency                           Six security hardening features are integrated at zero mea-
+demands optimized implementations across diverse platforms,                  surable runtime cost. Bit-exact compliance is verified through
+                                                                             100/100 NIST KAT vectors.
+  Hemraj Shobharam Lamkuche, Pon Harshavardhanan, and Bharat Raghu-             The principal contributions of this work are:
+vanshi are with VIT Bhopal University (e-mail: hemraj.lamkuche@gmail.com;
+pon.harshavardhanan@vitbhopal.ac.in; bharatssingh070781@gmail.com).            1 Named after the divine bow of Lord Krishna (Sharang,   ) in Hindu
+  Krishna Kumar Singh is with Symbiosis Centre for Information Technology,
+Pune, India 411057 (e-mail: krishnakumar@scit.edu).                          mythology, symbolizing precision and protective power.
+TEMPLATE                                                                                                                       2
+
+
+
+   1) A lazy-reduction NTT with formal safety proofs, elim-                                 TABLE I
+       inating 79% of Barrett reduction passes (14 → 3).                              ML-KEM-768 PARAMETERS
+   2) An ARM NEON SIMD backend with exact 32-bit vec-
+                                                                            Parameter      Value    Description
+       torized Montgomery and Barrett reductions, achieving
+                                                                            n                256    Polynomial degree
+       10–22% single-operation speedup.                                     q               3329    Prime modulus
+   3) A CUDA GPU batch processing pipeline for ML-                          k                   3   Module rank
+       KEM, which exploits unified memory on Jetson SoCs                    η1 , η2          2, 2   CBD noise parameters
+                                                                            du , dv        10, 4    Compression bits
+       for batch throughput of 3.1×.                                        |pk|         1,184 B    Public key
+   4) A data-derived shuffle seeding technique that allows                  |sk|         2,400 B    Secret key
+       zero-cost SPA resistance by eliminating calls from the               |ct|         1,088 B    Ciphertext
+       per-NTT entropy system.                                              δ             2−164     Failure probability
+   5) Nine security hardening features verified against a
+       comprehensive threat model, with all 17 sensitive stack
+       variables covered by secure zeroization.                                         III. BACKGROUND
+   6) Bit-exact NIST compliance through 100/100 KAT vec-         A. ML-KEM-768 (FIPS 203)
+       tors and a 14-test internal verification suite.              ML-KEM operates over the polynomial ring Rq =
+   The remainder of this paper is organized as follows. Sec-     Zq [X]/(X n + 1) with q = 3329, n = 256, and module
+tion II reviews related work. Section III provides background    rank k = 3, providing NIST Security Level 3. The modulus
+information. Section IV details the SHARANG architecture.        satisfies q ≡ 1 (mod n), enabling NTT-based polynomial
+Section V describes security hardening. Section VI presents      multiplication with primitive nth root of unity ζ = 17. Table I
+the CUDA GPU acceleration. Section VII reports on the exper-     summarizes the parameters.
+imental results. Section VIII provides a comparative analysis.
+Section IX discusses trade-offs and limitations. Section X       B. Montgomery and Barrett Arithmetic
+concludes.
+                                                                   Montgomery reduction computes a·R−1 mod q for R = 216
+                                                                 via:
+                    II. R ELATED W ORK
+                                                                        t = (a · q −1 ) mod 216 ,    r = (a − t · q) ≫ 16    (1)
+A. Optimized ML-KEM Implementations
+                                                                 with q −1 = 62209 and output bound |r| ≤ 1665. Barrett
+   The pq-crystals team provides both a portable C reference
+                                                                 reduction normalizes the coefficients: r = a − ⌊(a · 20159 +
+and an AVX2-optimized x86 implementation [7], achieving
+                                                                 225 )/226 ⌋ · q.
+∼15 µs KeyGen on Intel Skylake through 256-bit SIMD
+vectorization. Nguyen and Gaj [10] investigated NEON-based
+Kyber optimization on ARMv8, using hand-written assembly         C. Target Platform
+for the NTT butterfly. wolfSSL [8] provides both portable C         The NVIDIA Jetson Orin Nano Super features a 6-
+and hand-tuned ARMv8 assembly, while liboqs [11] focuses         core ARM Cortex-A78AE (ARMv8.2-A with NEON/ASIMD,
+on API standardization rather than platform optimization.        ASIMDRDM) and an Ampere-class GPU (8 SMs, Compute
+                                                                 8.7, 1020 MHz). Crucially, the system uses unified memory
+                                                                 – CPU and GPU share 7.6 GB DRAM – eliminating PCIe
+B. Side-Channel Countermeasures
+                                                                 transfer overhead that typically makes GPU cryptography
+   Primas et al. [12] demonstrated single-trace SPA attacks      impractical on discrete GPUs.
+on unprotected NTT implementations. Countermeasures in-
+clude operation shuffling, Boolean/arithmetic masking [9], and                 IV. SHARANG A RCHITECTURE
+randomized dummy operations. These typically impose 2–
+                                                                 A. Lazy-Reduction NTT
+10× performance penalties. The shuffle approach adopted in
+SHARANG provides SPA resistance without the overhead of             The reference NTT applies Barrett reduction at every but-
+full masking.                                                    terfly layer (seven passes each for forward and inverse).
+                                                                 SHARANG eliminates all forward Barrett reductions through
+                                                                 a formal bounds proof.
+C. GPU-Accelerated Cryptography                                     Theorem 1. Given input |ci | ≤ q−1 and Montgomery
+   GPU acceleration of lattice-based cryptography has been       output |t| ≤ 1665, the forward NTT without Barrett reductions
+                                                                          (7)
+explored primarily for discrete GPU platforms [13]. The key      yields |ci | ≤ q−1 + 7 × 1665 = 14,983 < 215 −1.
+limitation is the PCIe transfer overhead for small data sizes       The proof follows by induction on the layer count: at layer
+(∼20 KB per KEM operation). Jetson-class SoCs with unified       ℓ, the butterfly computes r[j] ± t where |t| ≤ 1665, giving
+memory remove this bottleneck, enabling GPU acceleration         M (ℓ+1) = M (ℓ) + 1665 with the base case M (0) = 3328.
+even for individual operations. To the best of current knowl-       Theorem 2 (Inverse NTT with Reduced Barrett). The
+edge, SHARANG is the first ML-KEM implementation to              inverse NTT with Barrett reductions in layers 0, 2 and 4 (GS
+exploit heterogeneous CPU–GPU processing on an integrated        block sizes ℓ = 2, 8, 32) maintains |ci | < 7,000 < 215 −1
+SoC.                                                             throughout all seven layers.
+TEMPLATE                                                                                                                            3
+
+
+
+                            TABLE II                                                             TABLE III
+                    BARRETT R EDUCTION C OUNT                                   D IVISION -F REE C OMPRESSION C ONSTANTS
+
+        Implementation                   Fwd    Inv   Total                     Operation    Multiplier   Shift   Novel
+        pq-crystals / wolfSSL / liboqs     7     7     14                       Compress1      80,635     ≫ 28     Yes
+        SHARANG                            0     3     3                        Compress4      80,635     ≫ 28     No
+        Reduction                        100%   57%   79%                       Compress10    1,290,167   ≫ 32     No
+
+
+
+   Proof. The GS butterfly computes r[j] ← r[j] + r[j + ℓ]         degree-1 pairs sharing |ζ|), three batched 4-wide NEON calls
+and r[j + ℓ] ← fqmul(ζ, r[j + ℓ] − r[j]). The fqmul output         replace 10 sequential scalar multiplications.
+is bounded by 1665. In the Barrett layers, r[j] is reduced to
+|r[j]| < q = 3329. Between the Barrett layers (at most two
+                                                                   C. Karatsuba Base Multiplication
+consecutive non-Barrett layers), the maximum accumulation is
+q + 2 × 1665 = 6659 < 7000.                                □         The degree-1 base multiplication modulo X 2 − ζ requires
+   Table II compares the reduction counts.                         5 Montgomery multiplications in the standard formulation.
+                                                                   SHARANG provides an optional Karatsuba variant (activated
+                                                                   via MLKEM_USE_KARATSUBA) computing:
+B. ARM NEON SIMD Backend
+   The NEON backend processes eight 16-bit coefficients per           m0 = a0 b0 ,    m1 = a1 b1 ,   m2 = (a0 +a1 )(b0 +b1 )     (2)
+instruction through three key vectorized operations:                   r0 = m0 + m1 ζ,       r1 = m2 − m0 − m1                   (3)
+   1) Exact NEON Montgomery Reduction: Approximate ap-
+proaches (e.g., VQRDMULH) lose precision for large inputs.         in 4 Montgomery multiplications—a 20% reduction per
+SHARANG vectorizes the exact Montgomery formula (1) us-            basemul call. The additions a0 +a1 and b0 +b1 are safe because
+ing 32-bit intermediates via VMULL, as shown in Algorithm 1:       all basemul inputs are Barrett-reduced NTT coefficients (|c| <
+                                                                   q/2) or matrix entries from rejection sampling (c ∈ [0, q−1]);
+Algorithm 1 NEON Montgomery (4 elements)                           in either case |a0 + a1 | < 2(q−1) = 6656 < 215 .
+  prod ← vmull_s16(a, b)                 {4× int32}
+  t ← vmovn(prod) · q −1               {low 16 bits}               D. Division-Free Compression
+  tq ← vmull_s16(t, q)                   {4× int32}                  All three compression operations use magic multiplicative
+  return vshrn_n(prod − tq, 16)              {exact}               constants, eliminating division. Table III lists the constants.
+                                                                   The replacement Compress1 is unique to SHARANG.
+   2) Exact NEON Barrett Reduction: Barrett reduction re-
+quires a 26-bit shift of a 32-bit product. Since ARM NEON’s        E. Optimized System Primitives
+vshrn_n_s32 supports a maximum shift of 16, a two-step
+approach is employed:                                                 Profiling of the initial SHARANG implementation revealed
+                                                                   two critical bottlenecks unrelated to the core lattice arithmetic:
+   1) prod ← vmull_s16(a, 20159) + 225                  (32-bit)
+                                                                      Keccak-f[1600]: The original compact implementation used
+   2) t ← vshrn_n_s32(prod, 16)              (≫ 16, narrowing)
+                                                                   loop-based steps θ/ρ/π/χ/ι steps with modular indexing
+   3) t ← vshr_n_s16(t, 10)               (≫ 10 more =≫ 26)
+                                                                   (s[(i+4)%5]). This generated expensive division instruc-
+   4) r ← a − t · q                                 (via vmls)
+                                                                   tions on ARM, resulting in 99.6 ticks per SHA3-256 call ver-
+This maintains 32-bit precision through the full-width product,    sus 17.3 ticks for the pq-crystals unrolled variant, a 5.5× gap.
+avoiding the precision loss inherent in VQRDMULH-based             SHARANG adopted the unrolled public-domain permutation
+approximations.                                                    using 25 named state variables (Aba, Abe, . . . , Asu) with
+   3) NTT Butterfly Vectorization: For layers with block size      two-round unrolling, achieving parity with reference.
+ℓ ≥ 8, each twiddle factor applies to pairs of coefficients ≥ 8,      System RNG: The original randombytes() used
+allowing full utilization of the NEON. The butterfly transmits     fopen("/dev/urandom") followed by fread() and
+ζk to all 8 lanes and executes the load–fqmul–add/sub–store        fclose(), requiring three C library calls and one file
+pipeline:                                                          descriptor allocation per invocation (664 ticks). Replacement
+   vζ ← vdupq_n_s16(ζk )                                           with the Linux getrandom() system call reduced this to
+   rj ← vld1q_s16(r[j]); rj+ℓ ← vld1q_s16(r[j+ℓ])                  17 ticks – a 39× improvement. Since KEM operations invoke
+   t ← neon_fqmul(vζ , rj+ℓ )                                      randombytes() 1–2 times, this alone saved ∼650 ticks
+   vst1q(r[j], rj + t); vst1q(r[j+ℓ], rj − t)                      (∼21 µs) per operation.
+Layers with ℓ < 8 (layers 5–6 forward; 0–1 inverse) use               Table IV summarizes the impact of these system-level
+scalar computation. This hybrid strategy vectorizes the five       optimizations on the KEM performance from end-to-end.
+most computationally intensive layers in each direction.              These optimizations demonstrate that system-level profiling
+   4) NEON Basemul: The polynomial base multiplication is          is essential even for implementations with optimized core
+vectorized by batching four Montgomery multiplications per         arithmetic: the Keccak and RNG bottlenecks were invisible
+neon_fqmul_4 call. For each group of 4 coefficients (two           until primitive-level profiling was conducted.
+TEMPLATE                                                                                                                                                4
+
+
+
+                             TABLE IV                                                            TABLE V
+               S YSTEM -L EVEL O PTIMIZATION I MPACT                            S ENSITIVE VARIABLE Z EROIZATION C OVERAGE
+
+        Fix               Before    After          Speedup                    Function                   Variables Wiped               Bytes
+        Unrolled Keccak    99.6 t   17.4 t             5.5×                   indcpa_keypair             s, e, buf, A                  7,744
+        getrandom()         664 t   17.5 t              39×                   indcpa_enc                 y, e1 , e2 , m′               4,096
+                                                                              indcpa_dec                 s, w                          2,048
+        KeyGen total       240 µs   73 µs             3.3×                    sharang_keypair            d, z                           64
+        t = ticks @ 31.25 MHz. KeyGen with NEON + all fixes.                  sharang_encaps             m, kr                           96
+                                                                              sharang_decaps             m′ , kr, K̄                    128
+
+                  V. S ECURITY H ARDENING                                                         TABLE VI
+   SHARANG integrates six security features. Three are con-                            S ECURITY F EATURE C OMPARISON
+figurable via compile-time flags (SHUFFLE, CHECKSUM,
+                                                                                                     G
+HEALTH—the latter also governing CBD monitoring); two                                           RAN                                            ingS
+(secure zeroization, constant-time operations) are uncondition-                                          pq-c             L
+                                                                                                                                                   SL
+                                                                                                             ryst     wol        qs
+ally compiled as baseline requirements.                                                        SHA
+                                                                                                                  .       fSS   libo       Bor
+                                                                          Feature
+                                                                          Shuffled NTT          ✓           –           –        –              –
+A. Shuffled NTT (SPA Resistance)                                          Fault detection       ✓           –           –        –              –
+                                                                          RNG health (90B)      ✓           –           –        –              –
+   Butterfly execution order is randomized per NTT via Fisher–            CBD monitoring        ✓           –           –        –              –
+Yates shuffle driven by xorshift32 PRNG. A data-derived                   Secure wipe           ✓           –           ✓        –              ✓
+seed is computed from polynomial coefficients (c0 ⊕ (c1 ≪                 64-bit CT verify      ✓           –           –        –              ∼
+                                                                          cmov asm barrier      ✓           ✓           ✓        ✓              ✓
+16)⊕(c127 ·ϕ) where ϕ = 0x9e3779b9), eliminating the 17-                  Implicit rejection    ✓           ✓           ✓        ✓              ✓
+tick system call overhead per NTT. The fully hardened build               KAT compliance        ✓           ✓           ✓        ✓              ✓
+matches unprotected performance.                                          Count                  9           3           4        3             4
+
+
+B. Algebraic Fault Detection
+              P                                                      word accumulation (136 iterations vs. 1,088 byte-wise). The
+  The sum         ci mod q is invariant under NTT. Single-
+                                                                     cmov function includes a GCC/Clang __asm__ volatile
+coefficient faults are detected with probability 1 − 1/q ≈
+                                                                     barrier.
+99.97%.                                                                 Table VI compares security features between implementa-
+                                                                     tions.
+C. Runtime Health Monitoring
+   NIST SP 800-90B health tests [14] execute on every                               VI. CUDA GPU ACCELERATION
+randombytes() invocation in KeyGen and Encaps:                       A. Architecture
+   Repetition Count Test (cutoff C=24): Flags C consecutive            The Jetson Orin’s unified memory architecture enables zero-
+identical bytes. For an ideal source (uniform i.i.d. bytes), the     copy data sharing between CPU and GPU, making GPU-
+false positive probability is:                                       accelerated cryptography practical even for small (∼20 KB)
+           Pr[false pos.] = 256 · (1/256)23 = 2−176            (4)   KEM data sizes. SHARANG implements two CUDA strate-
+                                                                     gies:
+far below the NIST-recommended α = 2−20 threshold.                     Parallel gen matrix: The generation of the matrix A
+   Adaptive Proportion Test (W =64, cutoff = 12): Flags if           requires k 2 = 9 independent SHAKE-128 instances. A CUDA
+any byte value appears ≥ 12 times in a window of 64 samples.         kernel launches 9 threads per block, each running a complete
+Expected count per value: 64/256 = 0.25; the probability of          Keccak-f[1600] permutation pipeline in registers, with round
+reaching 12 follows a Poisson tail with λ = 0.25, giving a           constants in __constant__ memory.
+false positive < 10−10 .                                               Batch KEM: For server throughput, N independent KEM
+   CBD Distribution
+            P           Monitor: For η = 2, thePCBD sum              operations are executed as N CUDA blocks. Within each
+satisfies E[ ci ] = 0, σ = 16. The 5σ threshold (| ci | < 80)        block, threads 0–8 perform parallel gen matrix, then thread 0
+detects anomalous noise with false positive < 1.7 × 10−6 .           executes the sequential pipeline (NTT, basemul, compression)
+This test is incorporated into the production noise sampling in      using device functions for all arithmetic primitives (Mont-
+both indcpa_keypair and indcpa_enc, catching fault                   gomery/Barrett reduction, NTT, basemul, CBD sampling, PRF,
+injection attacks that bias the noise distribution.                  SHA3, compression, byte encoding). The shared memory
+                                                                     holds the matrix and polynomial state (∼22 KB per block,
+D. Secure Zeroization and Constant-Time Operations                   within the 48 KB limit).
+   All 17 sensitive stack variables (secret keys, ephemeral
+randomness, noise polynomials, intermediate buffers) across          B. Unified Memory Advantage
+six functions are wiped via volatile-qualified zeroing. Ta-            On discrete GPUs (e.g., NVIDIA A100), data transfer via
+ble V catalogs the coverage. Ciphertext comparison uses 64-bit       PCIe 4.0 incurs ∼2 µs latency per transfer plus ∼6 GB/s
+TEMPLATE                                                                                                                       5
+
+
+
+                          TABLE VII                               Algorithm 2 CUDA Batch KeyGen Kernel
+               CUDA D EVICE F UNCTION P ORTFOLIO                    Input: coins[N ][32] (pre-generated randomness)
+                                                                    Output: pk[N ][1184], sk[N ][1152]
+Category    Functions
+                                                                    op ← blockIdx.x; tid ← threadIdx.x
+Reduction   gpu_montgomery_reduce, gpu_barrett_reduce,              if tid = 0 then
+            gpu_fqmul
+NTT         gpu_ntt, gpu_invntt, gpu_poly_ntt                          (ρ, σ) ← SHA3-512(coins[op]∥k)
+Poly ops    gpu_poly_add, gpu_poly_sub,                             end if
+            gpu_poly_reduce, gpu_poly_tomont                        __syncthreads()
+Basemul     gpu_basemul, gpu_poly_basemul_montgomery,
+            gpu_polyvec_basemul_acc                                 if tid < 9 then
+Sampling    gpu_poly_cbd_eta2, gpu_prf                                 Generate A[tid/k][tid%k] via SHAKE-128 {9 parallel}
+Hash        gpu_sha3_256, gpu_sha3_512,                             end if
+            gpu_KeccakF1600
+Encoding    gpu_poly_tobytes, gpu_poly_frombytes,                   __syncthreads()
+            gpu_poly_frommsg                                        if tid = 0 then
+Compress    gpu_poly_compress_d4,                                      Sample s, e via PRF+CBD
+            gpu_poly_compress_d10
+                                                                       ŝ ← NTT(s); ê ← NTT(e)
+                                                                       t̂ ← tomont(A · ŝ) + ê
+                                                                       Encode pk, sk
+bandwidth. For a single KEM operation (∼20 KB data),                end if
+this would add ∼5 µs round-trip overhead—comparable to
+the computation itself. The Jetson Orin’s unified memory
+eliminates this entirely: cudaMallocManaged returns a                         VII. E XPERIMENTAL E VALUATION
+pointer accessible by both CPU and GPU without explicit data      A. Methodology
+movement. The only overhead is the cudaMallocManaged                 All benchmarks are executed on the NVIDIA Jet-
+call itself (∼500 µs), which is amortized by pre-allocating       son Orin Nano Super Development Kit (ARM Cortex-
+persistent buffers for the single-operation path and batch-       A78AE, 6 cores; Ampere GPU, 8 SMs at 1020 MHz;
+allocating once per batch.                                        7.6 GB unified DRAM). CPU timing uses the ARMv8
+                                                                  virtual timer counter (cntvct_el0) at 31.25 MHz; GPU
+                                                                  benchmarks use clock_gettime(CLOCK_MONOTONIC).
+                                                                  The median of 2,000 iterations is reported after a
+C. Device Function Portfolio                                      warmup of 100-iterations. Compilation: GCC 11.4 with -O2
+                                                                  -std=c11 -march=armv8.2-a; NVCC 12.6 with -O2
+   The batch KEM kernel requires the complete ML-KEM              -arch=sm_87.
+arithmetic stack as CUDA __device__ functions. Table VII
+catalogs the principal device functions implemented (26 total
+in kem_batch_gpu.cu and keccak_gpu.cuh).                          B. Verification
+   The Keccak round constants reside in __constant__                 Correctness is verified through three independent mecha-
+memory (24 × 8 = 192 bytes), allowing efficient broadcast         nisms:
+to all threads via the constant cache. The NTT zetas table           1) Internal     test      suite:   14     tests   covering
+(128 × 2 = 256 bytes) is also in __constant__ memory.                   Montgomery/Barrett reduction bounds, NTT roundtrip
+Each thread’s 25-lane Keccak state (200 bytes) fits entirely in         correctness, NTT lazy-reduction bounds, single and
+registers on Compute 8.7.                                               multi-round KEM correctness, implicit rejection, NIST
+                                                                        SP 800-90B health monitoring, CBD distribution,
+                                                                        constant-time comparison, 100-iteration KEM roundtrip
+                                                                        and stress tests with edge-case coefficients (all-zero,
+D. Security Constraint                                                  all-max). Result: 14/14 pass.
+                                                                     2) NIST KAT verification: 100 Known Answer Test
+  GPU execution is inherently not constant-time: warp di-               vectors generated using the AES-256-CTR-DRBG
+vergence, cache behavior, and memory patterns are observ-               specified by the NIST PQC framework, via the
+able. The CUDA path is therefore restricted to KeyGen and               deterministic API (sharang_keypair_derand,
+Encaps (public-key operations). Decaps with secret keys                 sharang_encaps_derand). All 100 vectors are
+remain on the CPU with NEON and shuffle countermeasures.                byte-identical to the pq-crystals reference output. This
+                                                                        covers all three KEM operations and all code paths
+                                                                        (NTT, compression, hashing, encoding).
+                                                                     3) CUDA correctness: All GPU outputs (gen matrix,
+E. CUDA Implementation Details                                          batch KeyGen, batch Encaps) are compared byte-for-
+                                                                        byte against CPU reference outputs across 50 random
+   The Algorithm 2 presents the batch KeyGen kernel struc-              seeds and batch sizes from N =8 to N =512. Result:
+ture.                                                                   100% bit-exact.
+TEMPLATE                                                                                                                                 6
+
+
+
+                             TABLE VIII                                                          TABLE X
+      P RIMITIVE -L EVEL P ERFORMANCE ( TICKS @ 31.25 MH Z )                       C ONFIGURATION I MPACT ON K EY G EN ( MS )
+
+           Operation           Ref    NEON     Speedup                  Configuration                     KeyGen     Change
+           ntt(256)           98.7      56.3       1.75×                pq-crystals reference              0.077     Baseline
+           invntt(256)       132.4      66.6       1.99×
+           poly_ntt           92.4      45.2       2.04×                SHARANG scalar (no sec.)            0.083    +8% (secure wipe)
+           poly_reduce        12.7       4.1       3.10×                SHARANG scalar (hardened)           0.086    +12% (+shuffle)
+           poly_basemul       42.1      43.2       0.97×                SHARANG NEON (no sec.)              0.069    −10% (SIMD)
+           poly_add            6.5       0.8       8.13×                SHARANG NEON (hardened)             0.073    −5% (best)
+           poly_tomont        13.1       4.4       2.98×                SHARANG CUDA (N =256)             0.026/op   −66% (batch)
+           sha3_256           17.3      17.4       1.00×
+                                                                                               TABLE XI
+                           TABLE IX                                                 ML-KEM-768 KEM P ERFORMANCE ( MS )
+     E NCAPS C YCLE B REAKDOWN (NEON, TICKS @ 31.25 MH Z )
+                                                                        Configuration                     KeyGen     Encaps     Decaps
+        Sub-operation                     Count      Ticks              pq-crystals ref (C)                0.077      0.085     0.108
+        gen_matrix (9 SHAKE-128)        9 polys      ∼600               SHARANG scalar (no sec.)           0.083      0.086     0.107
+        invntt (3 vec + 1 poly)        4 iNTTs       ∼260               SHARANG NEON (no sec.)             0.069      0.070     0.084
+        basemul (12 poly pairs)              12      ∼470               SHARANG NEON (hardened)            0.073      0.072     0.085
+        poly_ntt (3 vec)                3 NTTs       ∼135
+        Noise sampling (7 PRF+CBD)             7     ∼210               vs. reference                      −5%        −15%      −21%
+        Compression (du =10, dv =4)     4 polys      ∼70
+        Hash (G, H), randombytes         3 calls     ∼55
+        secure_wipe                    4 buffers     ∼50
+                                                                    •  Server with GPU batch: At N =256 KeyGen throughput
+        Total estimated                              ∼1,850
+        Measured                                     ∼2,250
+                                                                       of 38,800/sec plus CPU Decaps at ∼11,700/sec, the
+                                                                       bottleneck shifts to Decaps.
+                                                                    The combined PK+CT size of 2,272 bytes fits comfort-
+C. Primitive-Level Performance                                    ably in a single TLS record, adding ∼2 KB overhead to
+                                                                  the handshake—comparable to RSA-2048 certificates and far
+   Table VIII compares individual operation timings.
+                                                                  smaller than SLH-DSA-192s signatures (16,224 B).
+   The NTT achieves a speedup of 1.75× speedup (for-
+ward) and 1.99× (inverse, additionally benefitting from a
+reduced Barrett count: 3 vs. 7). Simple vectorizable operations   F. Configuration Impact Analysis
+(poly_add, poly_sub) achieve 8.13× by processing 8                   Table X quantifies the performance impact of each build
+coefficients per NEON instruction. The basemul shows a            configuration option, allowing deployment-specific optimiza-
+slight regression (0.97×) due to lane extraction overhead         tion decisions.
+(vget_lane_s16) in the batching strategy; future work may            The NEON acceleration (−10%) more than compensates
+improve this by rearranging the coefficient memory layout.        for the hardening overhead (+8%), producing a net −5%
+SHA-3 performance is identical (same unrolled Keccak on           improvement over the unprotected reference. The CUDA batch
+both paths).                                                      path achieves −66% per-operation cost at N =256, but applies
+                                                                  only to throughput-oriented workloads.
+D. Cycle Breakdown Analysis
+  Table IX presents an estimated cycle breakdown for              G. KEM-Level Performance
+Encaps, the operation most frequently invoked in TLS 1.3             Table XI presents full KEM timings across all configura-
+handshakes.                                                       tions.
+  The matrix generation (gen_matrix) and basemul to-                 The fully hardened NEON build achieves near-parity with
+gether account for ∼47% of the total, followed by the inverse     the unprotected NEON build (<4 µs difference) due to data-
+NTT (∼12%) and noise sampling (∼9%). The ∼400-tick gap            derived shuffle seeding.
+between the estimated and measured values is attributable to
+function call overhead, cache misses, and pipeline stalls.
+                                                                  H. CUDA Batch Throughput
+                                                                     Table XII presents GPU batch processing results at
+E. Throughput and Deployment Analysis
+                                                                  1020 MHz GPU clock.
+  For TLS 1.3 hybrid key exchange (X25519 + ML-KEM-                  The GPU crossover point is N ≈ 32 for both operations.
+768):                                                             Peak throughput at N =256: 38,800 KeyGen/sec (GPU) versus
+  • Client (Encaps): 72 µs adds minimal latency to the            12,600 (CPU). The batch Encaps kernel includes CPU-side
+     handshake. Combined with X25519 (∼50 µs), the total          hash computation (H(pk) and G(m∥H(pk))), which limits
+     post-quantum overhead is ∼122 µs.                            its GPU speedup compared to KeyGen.
+  • Server (KeyGen + Decaps): 158 µs total; single-core              The GPU scaling behavior exhibits two regimes:
+     throughput ∼6,300 handshakes/sec.                            (i) for N < 8, kernel launch overhead (∼5 µs) and
+TEMPLATE                                                                                                                            7
+
+
+
+                          TABLE XII                                    C. Optimization Technique Comparison
+           CUDA BATCH T HROUGHPUT (GPU @ 1020 MH Z )
+                                                                        Table XVII compares algorithmic techniques in all imple-
+                       KeyGen                  Encaps                  mentations.
+            N    CPU     GPU      ×      CPU     GPU       ×
+                                                                       D. Security Analysis
+           32      2.5      2.1  1.2     3.5      3.3   1.1
+           64      5.0      2.3  2.2     6.8      3.7   1.8               The security of ML-KEM-768 is based on the MLWE prob-
+           128    10.1      3.7  2.7    13.3      5.9   2.3            lem with the hardness of the core-SVP ∼2182 (classical) and
+           256    20.2      6.6  3.1    25.1     10.4   2.4
+           512    40.2    13.5   3.0      —        —     —             ∼2164 (quantum) [4]. SHARANG maintains these guarantees
+           Times in ms. All GPU outputs bit-exact with CPU.            through bit-exact compliance with P6FIPS 203.
+                                                                          The shuffled NTT provides         ℓ=0 log2 (ℓ!) > 1000 bits
+                              TABLE XIII                               of entropy across all layer permutations, making SPA trace
+                 C ODE S IZE (. TEXT SEGMENT, BYTES )                  correlation infeasible. The algebraic checksum detects single-
+                                                                       coefficient faults with probability 1 − 1/q ≈ 99.97%. Health
+  Component                           Size   Notes                     monitors detect RNG failure with a false-positive rate < 2−176
+  pq-crystals reference          14,100      Baseline                  (Repetition Count) and < 10−10 (Adaptive Proportion).
+  SHARANG scalar + security      12,660      Core w/guards
+  NEON modules                    1,692      ntt + poly + reduce
+  Security features                 868      health + wipe + shuffle   E. Threat Model and Coverage
+  SHARANG NEON total             15,220      +7.9%
+                                                                          Table XVIII maps the ML-KEM attack surface to
+  CUDA kernels                   ∼4,500      gen matrix + batch KEM    SHARANG’s countermeasures.
+                                                                          Limitations: The shuffle provides SPA but not DPA resis-
+                                                                       tance (which requires Boolean/arithmetic masking – identified
+cudaMallocManaged latency (∼500 µs per allocation)                     as future work). GPU execution is not constant-time due to
+dominate; (ii) for N > 128, the 8-SM GPU approaches                    warp divergence and cache effects; the CUDA path is restricted
+saturation (9 threads per block × N blocks = 9N threads,               to public-key operations only. Coordinated multi-coefficient
+exceeding the 12,288 concurrent thread capacity at N =1,365).          faults that preserve the NTT sum invariant (+∆ at position i,
+The optimal operating region is N ∈ [64, 512], where GPU               −∆ at position j) evade the algebraic checksum.
+utilization is high but not saturated.
+   The choice of 9 threads per block (one per matrix entry)
+leaves significant SM resources unused. A future optimization          F. Hardening Overhead
+could assign 32 threads per block (one warp), distributing the           Table XIX quantifies the cost of each security feature.
+sequential NTT/basemul work across threads within the warp
+using cooperative computation and __shfl_sync for data                 G. Build Configuration
+exchange.                                                                 SHARANG provides a modular build system with six
+                                                                       compile-time flags controlling the acceleration tier, security
+I. Code Size                                                           level, and algorithmic variant. Table XX documents the avail-
+  Table XIII presents the code size breakdown.                         able configurations.
+                                                                          The primary build targets are: make (portable scalar),
+                VIII. C OMPARATIVE A NALYSIS                           make neon (ARM NEON SIMD), make cuda (GPU batch
+A. Cross-Implementation Comparison                                     processing), and make kat (NIST KAT verification with
+                                                                       AES-256-CTR-DRBG).
+   Table XIV compares SHARANG against major ML-KEM
+implementations.
+   SHARANG NEON provides 3.4–5.6× speedup over wolf-                   H. Comparison with Pre-Quantum Key Exchange
+SSL and liboqs portable C implementations on ARM. In batch                Table XXI contextualizes ML-KEM-768 overhead relative
+mode (N=256), the effective GPU time per-operation of 26               to classical key exchange mechanisms.
+µs for KeyGen approaches the x86 AVX2 performance level,                  The hybrid X25519+ML-KEM-768 overhead (∼200 µs) is
+achieved through massive parallelism on the integrated GPU             2.5× faster than RSA-2048 key exchange while providing
+rather than the larger SIMD.                                           quantum resistance. The 2,336-byte combined size fits in a
+                                                                       single TLS 1.3 record.
+B. NIST PQC Algorithm Comparison
+                                                                                              IX. D ISCUSSION
+   Table XV contextualizes ML-KEM within the NIST PQC
+portfolio at the Security Level 3.                                     A. Scaling Projections
+   ML-KEM-768 has the smallest combined PK+CT size                        The SHARANG architecture is parametric in the module
+(2,272 B) and the fastest operations among all Level 3 algo-           rank k. Table XXII projects the performance of ML-KEM-512
+rithms – ideal for TLS 1.3 hybrid key exchange. Table XVI              (k=2) and ML-KEM-1024 (k=4), scaled from measured k=3
+compares the three sets of ML-KEM parameters across all                timings proportionally to operation counts (NTT: k polynomi-
+NIST security levels.                                                  als; basemul: k 2 pairs; gen matrix: k 2 SHAKE instances).
+TEMPLATE                                                                                                                                                                       8
+
+
+
+                                                                              TABLE XIV
+                                                              ML-KEM-768 C ROSS -I MPLEMENTATION C OMPARISON
+
+              Implementation                             Platform                KeyGen (ms)      Encaps (ms)       Decaps (ms)      Sec.       Acceleration
+              SHARANG NEON                               ARM A78AE                     0.073          0.072             0.085         9         NEON intrinsics
+              SHARANG CUDA (N=256)                       Orin GPU                    0.026/op       0.041/op              —           —         CUDA batch
+              pq-crystals ref                            ARM A78AE                     0.077          0.085             0.108         3         None
+              pq-crystals AVX2                           x86 Skylake                 ∼0.015          ∼0.020            ∼0.015          3        AVX2
+              wolfSSL ARMv8                              ARM A72                     ∼0.080          ∼0.100            ∼0.100          4        ASM
+              wolfSSL C                                  ARM                         ∼0.300          ∼0.400            ∼0.400          4        None
+              liboqs C                                   ARM                         ∼0.250          ∼0.300            ∼0.300          3        None
+
+
+
+                           TABLE XV                                                                                         TABLE XVIII
+            NIST PQC A LGORITHMS AT S ECURITY L EVEL 3                                                     ATTACK S URFACE AND C OUNTERMEASURE M APPING
+
+      Algorithm              Std.             PK (B)           CT/Sig       Type                           Attack           Target               Defense           ✓
+      ML-KEM-768          FIPS 203            1,184              1,088      KEM                            SPA              NTT order            Shuffled          ✓
+      ML-DSA-65           FIPS 204            1,952             3,293        Sig                                                                 NTT
+      SLH-DSA-192s        FIPS 205              48              16,224       Sig                           Timing           CT compare           64-bit CT         ✓
+                                                                                                           Timing           cmov branch          ASM barrier       ✓
+                                                                                                           CCA oracle       Decaps reject        Implicit rej.     ✓
+                            TABLE XVI                                                                      Fault (NTT)      Coefficients         Checksum          ✓
+                       ML-KEM PARAMETER S ETS                                                              Fault    (re-    FO bypass            CT         re-    ✓
+                                                                                                           enc)                                  encrypt
+                                                                                                           RNG failure      Key coins            SP 800-90B        ✓
+                         k       |pk|          |ct|           |pk|+|ct|     Level                          RNG bias         Noise dist.          CBD moni-         ✓
+      ML-KEM-512         2      800            768              1,568            1                                                               tor
+      ML-KEM-768         3     1,184          1,088             2,272            3                         Cold boot        Stack secrets        secure wipe       ✓
+      ML-KEM-1024        4     1,568          1,568             3,136            5                         DPA              Power traces         masking           —
+                                                                                                           EM emana-        EM probes            shielding         —
+                                                                                                           tion
+                              TABLE XVII
+                       O PTIMIZATION T ECHNIQUES
+
+                                                                                                                             TABLE XIX
+                                          G
+                                                                                                             S ECURITY F EATURE OVERHEAD (NEON B UILD )
+                                     RAN              ryst         SL
+                                                          .                qs
+                                    SHA          pq-c           wol
+                                                                    fS    libo                     Feature                                             Runtime     Code (B)
+           Technique
+                                                                                                   Shuffled NTT (data-derived seed)                          0         200
+           Fwd NTT Barrett        0       7                       7        7                       Algebraic checksum                                        0         incl.
+           Inv NTT Barrett        3       7                       7        7                       RNG health + CBD monitor                                  0         432
+           NEON NTT               ✓       —                      ✓∗        —                       Secure wipe                               ∼140 ticks/keygen         100
+           CUDA batch KEM         ✓       —                      —         —                       cmov barrier + 64-bit verify                              0         136
+           Div-free Compress1     ✓       —                      ✓         —
+           Karatsuba basemul     opt.     —                      —         —                       Total                                                   <5 µs       868
+           64-bit CT verify       ✓       —                      —         —
+           ∗ Hand-written ARMv8 assembly.
+
+                                                                                                                                 TABLE XX
+                                                                                                                       B UILD C ONFIGURATION F LAGS
+  For CUDA batch processing, the scaling is favorable: ML-
+KEM-1024 increases per block computation but does not                                                 Flag                           Default      Effect
+change the parallelism structure (still 16 or 9 threads per                                           MLKEM_USE_NEON                   off        NEON SIMD backend
+                                                                                                      SECURITY_SHUFFLE                 on         Shuffled NTT (SPA)
+block), so the GPU speedup ratio should remain similar.                                               SECURITY_CHECKSUM                on         NTT fault detection
+                                                                                                      SECURITY_HEALTH                  on         SP 800-90B + CBD
+                                                                                                      USE_KARATSUBA                    off        4-fqmul basemul
+B. Heterogeneous Computing Trade-offs                                                                 USE_SOLINAS                      off        FPGA Solinas path
+
+   The three-tier architecture of SHARANG reflects a funda-
+mental trade-off in heterogeneous systems. The ARM NEON
+path optimizes for latency (single-operation time), achieving                                      The unified memory architecture on Jetson Orin is essential
+69–85 µs per KEM operation. The CUDA path optimizes for                                         to this strategy. On a discrete GPU system, the ∼20 KB per-
+throughput (operations per second), achieving up to 38,800                                      operation data size and the ∼5 µs PCIe round-trip latency
+KeyGen/sec at N =256. The crossover at N ≈ 32 defines the                                       would make GPU acceleration counterproductive for batch
+transition point: interactive protocols (TLS handshakes) should                                 sizes below N ≈ 1,000. Unified memory shifts the crossover
+use the CPU path, while batch workloads (server key rotation,                                   to N ≈ 32, making GPU acceleration practical for realistic
+certificate pre-computation) benefit from GPU acceleration.                                     server workloads.
+TEMPLATE                                                                                                                         9
+
+
+
+                           TABLE XXI                             of the total cycles. For Encaps, the basemul and inverse NTT
+           P OST-Q UANTUM VS . C LASSICAL K EY E XCHANGE         dominate; the NEON NTT butterfly vectorization provides
+                                                                 the largest single improvement (2.04× on poly_ntt). For
+     Algorithm           PK+CT         Time       Security
+                                                                 Decaps, which includes both a matrix generation and a re-
+     X25519               64 B       ∼50 µs      Classical       encryption, the compound effect of all optimizations is most
+     RSA-2048            512 B      ∼500 µs      Classical
+     ML-KEM-768         2,272 B    ∼150 µs∗      Quantum         pronounced—yielding the largest overall speedup (22%).
+     X25519+ML-KEM      2,336 B     ∼200 µs       Hybrid            The lazy-reduction NTT is architecture-independent: it pro-
+     ∗ KeyGen+Decaps combined (server side, SHARANG NEON).
+                                                                 duces identical outputs for any correct Montgomery im-
+                                                                 plementation and applies equally to scalar, NEON, and
+                       TABLE XXII                                CUDA paths. The division-free compression is similarly
+  P ROJECTED SHARANG NEON P ERFORMANCE ACROSS ML-KEM             portable. These algorithmic optimizations are multiplicatively
+                     PARAMETER S ETS
+                                                                 composed with platform-specific SIMD vectorization, yield-
+       Param.            k   KeyGen      Encaps    Decaps        ing the observed performance advantage without sacrificing
+       ML-KEM-512        2   ∼40 µs     ∼42 µs    ∼50 µs
+                                                                 portability—the scalar build path remains available for plat-
+       ML-KEM-768        3    73 µs      72 µs     85 µs         forms without NEON or CUDA support.
+       ML-KEM-1024       4   ∼115 µs    ∼112 µs   ∼132 µs           The CUDA batch strategy represents a different optimiza-
+                                                                 tion axis: instead of accelerating individual operations, it
+                                                                 amortizes kernel launch and memory management overhead
+C. Security-Performance Co-Design                                in independent operations N . This is particularly effective for
+   A key finding of this work is that comprehensive secu-        the gen matrix phase, where 9N independent SHAKE-128
+rity hardening can be achieved at zero measurable runtime        instances run in parallel across the GPU’s 8 SMs. At N =256,
+cost through architectural co-design. The data-derived shuffle   this yields 2,304 concurrent SHAKE instances – well beyond
+seeding technique is central to this result: by deriving the     the crossover point where GPU parallelism dominates CPU
+PRNG seed from polynomial coefficients (which are already        sequential execution.
+in registers during NTT invocation), the system-call overhead
+of entropy acquisition is eliminated while maintaining the
+unpredictability property required for SPA resistance.                                  X. C ONCLUSION
+   The decision to make secure_wipe and constant-
+time operations unconditionally compiled—rather than flag-          This paper presented SHARANG, a heterogeneous CPU–
+controlled—reflects a security engineering judgment: these       GPU implementation of ML-KEM-768 for ARM–CUDA plat-
+features represent baseline requirements that should not be      forms. The three-tier architecture delivers: (1) single-operation
+accidentally disabled, even at the cost of a few bytes of code   performance 5–21% faster than the pq-crystals reference via
+size.                                                            NEON SIMD with exact 32-bit vectorized arithmetic; (2) batch
+                                                                 throughput up to 3.1× via CUDA GPU parallelization of the
+                                                                 KEM pipeline; and (3) nine security hardening features at
+D. Limitations and Open Problems
+                                                                 <5 µs and 868-byte overhead.
+   Several limitations are acknowledged. The NEON basemul           The lazy-reduction NTT eliminates 79% of Barrett re-
+shows slight regression (0.97×) due to lane extraction over-     ductions. The data-derived shuffle seeding technique enables
+head; restructuring the coefficient memory layout into a         zero-cost SPA resistance. Bit-exact compliance is confirmed
+structure-of-arrays format could enable more efficient SIMD      through 100/100 NIST KAT vectors. Among ARM ML-
+utilization, but would require changes throughout the call       KEM-768 implementations, SHARANG achieves the highest
+chain. The CUDA batch Encaps requires CPU-side hash com-         performance with the most comprehensive security hardening,
+putation (H(pk) and G(m∥H(pk))), limiting its GPU speedup        demonstrating that security, performance, and GPU accelera-
+to 2.4× versus the 3.1× achieved by KeyGen (which performs       tion are complementary rather than competing goals.
+all hashing on-GPU). Porting the full hash computation to
+                                                                    Several directions for future work are identified. First,
+GPU is complicated by the large input size of H(pk) (1,184
+                                                                 DPA-resistant Boolean/arithmetic masking of NTT operands
+bytes, requiring multi-block Keccak absorption).
+                                                                 would complement the existing SPA shuffle. Second, extension
+   The GPU path’s restriction to public-key operations (no
+                                                                 to ML-KEM-512 (k=2) and ML-KEM-1024 (k=4) requires
+Decaps) limits its applicability in some deployment scenarios.
+                                                                 only parameter changes; the SHARANG architecture is para-
+A GPU-side masked Decaps implementation would unlock
+                                                                 metric in module rank. Third, NEON vectorization of the
+full heterogeneous server operation but requires significant
+                                                                 Keccak-f[1600] θ and χ steps could produce 1.5–2× speedup
+additional complexity.
+                                                                 in the hashing-dominated gen_matrix. Fourth, increasing
+                                                                 CUDA thread utilization from 9 to 32 threads per block
+E. Comparison of Optimization Strategies                         (one warp) using cooperative NTT computation could improve
+   The relative contribution of each optimization technique      GPU throughput by ∼2×. Finally, the Solinas reduction path
+to the overall speedup varies by operation. For KeyGen,          (q = 212 − 767, using shift-add arithmetic at ∼90 LUTs
+the dominant factor is the gen matrix optimization (NEON         versus ∼800 for Montgomery) is available for FPGA synthesis
+Keccak + lazy NTT): matrix generation accounts for ∼35%          targeting embedded post-quantum deployments.
+TEMPLATE                                                                       10
+
+
+
+                AVAILABILITY OF S OURCE C ODE
+  The SHARANG source code is available from the corre-
+sponding author upon reasonable request via email.
+
+                        ACKNOWLEDGMENTS
+  The SHARANG implementation is based on the
+CRYSTALS-Kyber implementation by Avanzi et al. [4].
+The Keccak-f[1600] permutation is from Van Keer, Bernstein,
+and Schwabe. The name SHARANG honors the rich heritage
+of Indian scientific and mathematical traditions.
+
+                             R EFERENCES
+ [1] NIST, “Module-Lattice-Based Key-Encapsulation Mechanism Stan-
+     dard,” FIPS 203, Aug. 2024.
+ [2] NIST, “Module-Lattice-Based Digital Signature Standard,” FIPS 204,
+     Aug. 2024.
+ [3] NIST, “Stateless Hash-Based Digital Signature Standard,” FIPS 205,
+     Aug. 2024.
+ [4] R. Avanzi et al., “CRYSTALS-Kyber algorithm specifications (v3.02),”
+     NIST PQC Submission, 2021.
+ [5] Google, “BoringSSL post-quantum key exchange,” https://boringssl.
+     googlesource.com/boringssl/, 2024.
+ [6] Amazon Web Services, “AWS-LC cryptographic library,” https://github.
+     com/aws/aws-lc, 2024.
+ [7] CRYSTALS-Kyber Reference Implementation, https://github.com/
+     pq-crystals/kyber, 2024.
+ [8] wolfSSL Inc., “wolfSSL ML-KEM/Kyber Support,” https://www.
+     wolfssl.com/, 2024.
+ [9] J. W. Bos et al., “CRYSTALS-Kyber: A CCA-secure module-lattice-
+     based KEM,” in Proc. Euro S&P, 2018, pp. 353–367.
+[10] D. T. Nguyen and K. Gaj, “Optimized CRYSTALS-Kyber using NEON
+     instructions of ARMv8,” in Proc. NIST 4th PQC Conf., 2022.
+[11] D. Stebila and M. Mosca, “liboqs: Open-source C library for quantum-
+     safe algorithms,” https://openquantumsafe.org/, 2024.
+[12] R. Primas, P. Pessl, and S. Mangard, “Single-trace side-channel attacks
+     on masked lattice-based encryption,” in Proc. CHES, 2017, pp. 513–533.
+[13] T. Oder and T. Güneysu, “NewHope-Simple key exchange on low-cost
+     FPGAs,” in Proc. LATINCRYPT, 2017, pp. 128–142.
+[14] NIST, “Recommendation for entropy sources used for random bit
+     generation,” SP 800-90B, 2018.
+
