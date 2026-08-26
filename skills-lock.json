@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "academic-paper-reviewer": {
+      "source": "imbad0202/academic-research-skills",
+      "sourceType": "github",
+      "skillPath": "academic-paper-reviewer/SKILL.md",
+      "computedHash": "16829d22520d1afb1bd86406f11dc844151d8cec57d6ca2ead1d62c67d44549e"
+    },
     "docx": {
       "source": "appautomaton/document-skills",
       "sourceType": "github",
