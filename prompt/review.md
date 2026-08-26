@@ -46,17 +46,17 @@ Do not silently overwrite an existing `review.typ`. For re-review, first preserv
 
 ## Final `review.typ`
 
-Follow `typesetting/CLAUDE.md` and use `typesetting/academic/review.typ` as the visual and structural template. Remove all placeholders and include:
+Follow `typesetting/CLAUDE.md` and use `typesetting/academic/review.typ` as the visual template. Remove all placeholders and include:
 
-1. **Paper Information** — title, manuscript ID, venue, round, and date.
-2. **Review Summary** — contribution, overall assessment, and one recommendation: Accept, Minor Revision, Major Revision, or Reject.
-3. **Strengths** — numbered, manuscript-specific points.
-4. **Major Comments** — numbered issues with location/evidence, consequence, and remedy.
-5. **Minor Comments** — localized writing, notation, citation, figure, table, and presentation issues.
-6. **Questions for Authors** — only materially relevant questions; omit if none.
-7. **Confidential Comments to Editor** — recommendation rationale and venue fit when known.
+1. **Paper Information** — title, manuscript ID, venue, review round, recommendation, and date.
+2. **Review Summary** — summarize the contribution, verified improvements or strengths, central concerns, and recommendation; then list the main required revisions point by point.
+3. **Detailed Review**, organized as:
+   - **Innovation Assessment**
+   - **Technical Quality Assessment**
+   - **Experimental and Validation Assessment**
+   - **Writing Quality Assessment**
 
-Do not include internal personas, orchestration notes, chain-of-thought, or a dump of panel reports. Do not use numerical scores unless requested.
+Retain the template's score boxes and visual conventions when they are useful, but ensure that narrative evidence—not numerical scores—controls the recommendation. Do not include internal personas, orchestration notes, chain-of-thought, confidential panel mechanics, or a dump of panel reports.
 
 ## Re-review
 
